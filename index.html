@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fight Skills Layout</title>
   <link rel="stylesheet" href="style.css">
-
 </head>
 <body>
   <div class="container">
@@ -275,20 +274,21 @@
             <div class="level-badge" id="char-level-badge"></div>
           </div>
           <div class="character-stats">
-            <div class="stat-item stat-orange">🗡️ <span id="char-stat-attack"></span></div>
-            <div class="stat-item stat-orange">🎯 <span id="char-stat-precision"></span></div>
-            <div class="stat-item stat-red">💥 <span id="char-stat-criticalChance"></span></div>
-            <div class="stat-item stat-red">🔥 <span id="char-stat-criticalDamages"></span></div>
-            <div class="stat-item stat-blue">🛡️ <span id="char-stat-armor"></span></div>
-            <div class="stat-item stat-blue">🌀 <span id="char-stat-dodge"></span></div>
-            <div class="stat-item stat-green">📦 <span id="char-stat-lootChance"></span></div>
+            <!-- Added data-stat-code for tooltip functionality -->
+            <div class="stat-item stat-orange" data-stat-code="attack">🗡️ <span id="char-stat-attack"></span></div>
+            <div class="stat-item stat-orange" data-stat-code="precision">🎯 <span id="char-stat-precision"></span></div>
+            <div class="stat-item stat-red" data-stat-code="criticalChance">💥 <span id="char-stat-criticalChance"></span></div>
+            <div class="stat-item stat-red" data-stat-code="criticalDamages">🔥 <span id="char-stat-criticalDamages"></span></div>
+            <div class="stat-item stat-blue" data-stat-code="armor">🛡️ <span id="char-stat-armor"></span></div>
+            <div class="stat-item stat-blue" data-stat-code="dodge">🌀 <span id="char-stat-dodge"></span></div>
+            <div class="stat-item stat-green" data-stat-code="lootChance">📦 <span id="char-stat-lootChance"></span></div>
           </div>
         </div>
         <div class="character-actions">
           <button class="action-btn">✖</button>
           <button class="action-btn">🛒</button>
           <button class="action-btn hunger-btn">🍗 <span id="char-stat-hunger"></span></button>
-          <button class="action-btn reset-btn" id="reset-btn">🔄 Reset</button> <!-- Nuevo botón de Reset -->
+          <button class="action-btn reset-btn" id="reset-btn">🔄 Reset</button> 
         </div>
       </div>
 
@@ -385,6 +385,10 @@
       </div>
     </div>
   </div>
-  <script src="script.js"></script>
+  
+  <!-- Tooltip Structure (hidden by default) -->
+  <div id="stat-tooltip" class="stat-tooltip"></div>
+
+  <script src="script.js"></script> <!-- SCRIPT MOVIDO AQUÍ -->
 </body>
 </html>

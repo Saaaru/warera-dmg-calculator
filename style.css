@@ -136,7 +136,6 @@ body {
 .progress-bar {
   display: flex;
   gap: 4px; /* Ajuste el espacio entre los bloques */
-  /* height: 6px; Ya no se necesita, los bloques definen la altura */
 }
 
 .progress-block {
@@ -223,6 +222,7 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
+  cursor: help; /* Indica que es interactivo */
 }
 
 .stat-orange { color: #ffa657; }
@@ -544,4 +544,75 @@ body {
   .resource-bars {
     align-items: flex-start;
   }
+}
+
+/* --- TOOLTIP STYLES --- */
+.stat-tooltip {
+  position: absolute;
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 10px 15px;
+  z-index: 1000;
+  pointer-events: none; /* Allows clicks to pass through when not visible */
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  color: #e6edf3;
+  font-size: 13px;
+  width: auto; /* Ajuste automático al contenido */
+  min-width: 200px;
+  max-width: 280px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); /* Sombra para resaltar */
+}
+
+.stat-tooltip h4 {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+  color: #f0f6fc;
+  border-bottom: 1px solid #21262d;
+  padding-bottom: 5px;
+}
+
+.stat-tooltip .description {
+  font-size: 11px;
+  color: #8b949e;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.stat-tooltip .detail-line {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.stat-tooltip .detail-label {
+  color: #8b949e;
+  font-size: 12px;
+}
+
+.stat-tooltip .detail-value {
+  font-weight: 500;
+  color: #f0f6fc;
+}
+
+.stat-tooltip .total-line {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #21262d;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  color: #ffa657; /* Color resaltado para el total */
+}
+
+.stat-tooltip .total-line .detail-value {
+    color: inherit; /* Heredar el color de la línea total */
+}
+
+/* Specific styling for the italic part in attack description */
+.stat-tooltip .description em {
+    font-style: normal; /* Override default italic */
+    color: #ffa657; /* Orange color for "Damages" */
 }
