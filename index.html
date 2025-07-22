@@ -1,394 +1,634 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fight Skills Layout</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="container">
-    <!-- SKILLS SECTION -->
-    <div class="skills-section">
-      <div class="skills-title">Fight skills</div>
-      
-      <!-- Attack Skill -->
-      <div class="skill" data-skill="attack">
-        <div class="skill-header">
-          <div class="skill-info">
-            <span class="skill-icon">🗡️</span>
-            <span class="skill-name">Attack</span>
-            <span class="skill-value" id="value-attack"></span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fight Skills Layout</title>
+    <!-- UPDATED PATH -->
+    <link rel="stylesheet" href="public/styles/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- SKILLS SECTION -->
+      <div class="skills-section">
+        <div class="skills-title">Fight skills</div>
+
+        <!-- Attack Skill -->
+        <div class="skill" data-skill="attack">
+          <div class="skill-header">
+            <div class="skill-info">
+              <span class="skill-icon">🗡️</span>
+              <span class="skill-name">Attack</span>
+              <span class="skill-value" id="value-attack"></span>
+            </div>
+            <div class="skill-buttons">
+              <button
+                class="skill-btn btn-minus"
+                data-skill="attack"
+                data-action="minus"
+              >
+                −
+              </button>
+              <button
+                class="skill-btn btn-plus"
+                data-skill="attack"
+                data-action="plus"
+              >
+                +
+              </button>
+            </div>
           </div>
-          <div class="skill-buttons">
-            <button class="skill-btn btn-minus" data-skill="attack" data-action="minus">−</button>
-            <button class="skill-btn btn-plus" data-skill="attack" data-action="plus">+</button>
+          <div class="skill-description">
+            It is the base value for damages calculation.
+          </div>
+          <div class="progress-bar" id="progress-attack">
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
           </div>
         </div>
-        <div class="skill-description">It is the base value for damages calculation.</div>
-        <div class="progress-bar" id="progress-attack">
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
+
+        <!-- Precision -->
+        <div class="skill" data-skill="precision">
+          <div class="skill-header">
+            <div class="skill-info">
+              <span class="skill-icon">🎯</span>
+              <span class="skill-name">Precision</span>
+              <span class="skill-value" id="value-precision"></span>
+            </div>
+            <div class="skill-buttons">
+              <button
+                class="skill-btn btn-minus"
+                data-skill="precision"
+                data-action="minus"
+              >
+                −
+              </button>
+              <button
+                class="skill-btn btn-plus"
+                data-skill="precision"
+                data-action="plus"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div class="skill-description">Chance to hit the target.</div>
+          <div class="progress-bar" id="progress-precision">
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+          </div>
+        </div>
+
+        <!-- Crit Chance -->
+        <div class="skill" data-skill="criticalChance">
+          <div class="skill-header">
+            <div class="skill-info">
+              <span class="skill-icon">💥</span>
+              <span class="skill-name">Crit. chance</span>
+              <span class="skill-value" id="value-criticalChance"></span>
+            </div>
+            <div class="skill-buttons">
+              <button
+                class="skill-btn btn-minus"
+                data-skill="criticalChance"
+                data-action="minus"
+              >
+                −
+              </button>
+              <button
+                class="skill-btn btn-plus"
+                data-skill="criticalChance"
+                data-action="plus"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div class="skill-description">Chance of landing a critical hit.</div>
+          <div class="progress-bar" id="progress-criticalChance">
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+          </div>
+        </div>
+
+        <!-- Crit Damages -->
+        <div class="skill" data-skill="criticalDamages">
+          <div class="skill-header">
+            <div class="skill-info">
+              <span class="skill-icon">🔥</span>
+              <span class="skill-name">Crit. damages</span>
+              <span class="skill-value" id="value-criticalDamages"></span>
+            </div>
+            <div class="skill-buttons">
+              <button
+                class="skill-btn btn-minus"
+                data-skill="criticalDamages"
+                data-action="minus"
+              >
+                −
+              </button>
+              <button
+                class="skill-btn btn-plus"
+                data-skill="criticalDamages"
+                data-action="plus"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div class="skill-description">
+            Increases the damage of critical hits.
+          </div>
+          <div class="progress-bar" id="progress-criticalDamages">
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+          </div>
+        </div>
+
+        <!-- Armor -->
+        <div class="skill" data-skill="armor">
+          <div class="skill-header">
+            <div class="skill-info">
+              <span class="skill-icon">🛡️</span>
+              <span class="skill-name">Armor</span>
+              <span class="skill-value" id="value-armor"></span>
+            </div>
+            <div class="skill-buttons">
+              <button
+                class="skill-btn btn-minus"
+                data-skill="armor"
+                data-action="minus"
+              >
+                −
+              </button>
+              <button
+                class="skill-btn btn-plus"
+                data-skill="armor"
+                data-action="plus"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div class="skill-description">
+            Chance of reducing incoming damage.
+          </div>
+          <div class="progress-bar" id="progress-armor">
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+          </div>
+        </div>
+
+        <!-- Dodge -->
+        <div class="skill" data-skill="dodge">
+          <div class="skill-header">
+            <div class="skill-info">
+              <span class="skill-icon">🌀</span>
+              <span class="skill-name">Dodge</span>
+              <span class="skill-value" id="value-dodge"></span>
+            </div>
+            <div class="skill-buttons">
+              <button
+                class="skill-btn btn-minus"
+                data-skill="dodge"
+                data-action="minus"
+              >
+                −
+              </button>
+              <button
+                class="skill-btn btn-plus"
+                data-skill="dodge"
+                data-action="plus"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div class="skill-description">
+            Dodging incoming damages. Prevents equipment durability from being
+            consumed.
+          </div>
+          <div class="progress-bar" id="progress-dodge">
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+          </div>
+        </div>
+
+        <!-- Health -->
+        <div class="skill" data-skill="health">
+          <div class="skill-header">
+            <div class="skill-info">
+              <span class="skill-icon">❤️</span>
+              <span class="skill-name">Health</span>
+              <span class="skill-value" id="value-health"></span>
+            </div>
+            <div class="skill-buttons">
+              <button
+                class="skill-btn btn-minus"
+                data-skill="health"
+                data-action="minus"
+              >
+                −
+              </button>
+              <button
+                class="skill-btn btn-plus"
+                data-skill="health"
+                data-action="plus"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div class="skill-description">Consumed when hitting in battles.</div>
+          <div class="progress-bar" id="progress-health">
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+          </div>
+        </div>
+
+        <!-- Loot Chance -->
+        <div class="skill" data-skill="lootChance">
+          <div class="skill-header">
+            <div class="skill-info">
+              <span class="skill-icon">📦</span>
+              <span class="skill-name">Loot chance</span>
+              <span class="skill-value" id="value-lootChance"></span>
+            </div>
+            <div class="skill-buttons">
+              <button
+                class="skill-btn btn-minus"
+                data-skill="lootChance"
+                data-action="minus"
+              >
+                −
+              </button>
+              <button
+                class="skill-btn btn-plus"
+                data-skill="lootChance"
+                data-action="plus"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div class="skill-description">
+            Chance to loot weapon or equipment after a battle.
+          </div>
+          <div class="progress-bar" id="progress-lootChance">
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+          </div>
+        </div>
+
+        <!-- Hunger -->
+        <div class="skill" data-skill="hunger">
+          <div class="skill-header">
+            <div class="skill-info">
+              <span class="skill-icon">🍗</span>
+              <span class="skill-name">Hunger</span>
+              <span class="skill-value" id="value-hunger"></span>
+            </div>
+            <div class="skill-buttons">
+              <button
+                class="skill-btn btn-minus"
+                data-skill="hunger"
+                data-action="minus"
+              >
+                −
+              </button>
+              <button
+                class="skill-btn btn-plus"
+                data-skill="hunger"
+                data-action="plus"
+              >
+                +
+              </button>
+            </div>
+          </div>
+          <div class="skill-description">Limit of food consumption.</div>
+          <div class="progress-bar" id="progress-hunger">
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+            <div class="progress-block"></div>
+          </div>
         </div>
       </div>
 
-      <!-- Precision -->
-      <div class="skill" data-skill="precision">
-        <div class="skill-header">
-          <div class="skill-info">
-            <span class="skill-icon">🎯</span>
-            <span class="skill-name">Precision</span>
-            <span class="skill-value" id="value-precision"></span>
+
+      <!-- CHARACTER CARD SECTION -->
+    <div class="center-column">
+      <div class="character-section">
+        <div class="character-header">
+          <div class="player-info">
+            <div class="avatar-container">
+              <img
+                src="https://via.placeholder.com/60/4a90e2/ffffff?text=👤"
+                alt="Player Avatar"
+                class="avatar"
+              />
+              <div class="level-badge" id="char-level-badge"></div>
+            </div>
+            <div class="character-stats">
+              <!-- Added data-stat-code for tooltip functionality -->
+              <div class="stat-item stat-orange" data-stat-code="attack">
+                🗡️ <span id="char-stat-attack"></span>
+              </div>
+              <div class="stat-item stat-orange" data-stat-code="precision">
+                🎯 <span id="char-stat-precision"></span>
+              </div>
+              <div class="stat-item stat-red" data-stat-code="criticalChance">
+                💥 <span id="char-stat-criticalChance"></span>
+              </div>
+              <div class="stat-item stat-red" data-stat-code="criticalDamages">
+                🔥 <span id="char-stat-criticalDamages"></span>
+              </div>
+              <div class="stat-item stat-blue" data-stat-code="armor">
+                🛡️ <span id="char-stat-armor"></span>
+              </div>
+              <div class="stat-item stat-blue" data-stat-code="dodge">
+                🌀 <span id="char-stat-dodge"></span>
+              </div>
+              <div class="stat-item stat-green" data-stat-code="lootChance">
+                📦 <span id="char-stat-lootChance"></span>
+              </div>
+            </div>
           </div>
-          <div class="skill-buttons">
-            <button class="skill-btn btn-minus" data-skill="precision" data-action="minus">−</button>
-            <button class="skill-btn btn-plus" data-skill="precision" data-action="plus">+</button>
+          <div class="character-actions">
+            <button class="action-btn">✖</button>
+            <button class="action-btn">🛒</button>
+            <button class="action-btn hunger-btn">
+              🍗 <span id="char-stat-hunger"></span>
+            </button>
+            <button class="action-btn reset-btn" id="reset-btn">
+              🔄 Reset
+            </button>
           </div>
         </div>
-        <div class="skill-description">Chance to hit the target.</div>
-        <div class="progress-bar" id="progress-precision">
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
+
+        <!-- NEW SECTION: Player Level & Skill Points, Health/Hunger Bars -->
+        <div class="player-status-section">
+          <div class="level-points-display">
+            <div class="stat-label">
+              Level: <span id="player-level-display"></span>
+            </div>
+            <div class="level-buttons">
+              <button class="level-btn btn-minus" id="level-minus-btn">
+                −
+              </button>
+              <button class="level-btn btn-plus" id="level-plus-btn">+</button>
+            </div>
+            <div class="stat-label">
+              Skill Points: <span id="skill-points-available"></span>/<span
+                id="skill-points-total"
+              ></span>
+            </div>
+          </div>
+          <div class="resource-bars">
+            <div class="resource-item">
+              ❤️ <span id="health-bar-display"></span>
+            </div>
+            <div class="resource-item">
+              🍗 <span id="hunger-bar-display"></span>
+            </div>
+          </div>
+        </div>
+        <!-- END NEW SECTION -->
+
+        <div class="equipment-section">
+          <div class="equipment-labels">
+            <span>Weapon</span>
+            <span>Ammo</span>
+            <span>Helmet</span>
+            <span>Chest</span>
+            <span>Pants</span>
+            <span>Boots</span>
+            <span>Gloves</span>
+          </div>
+          <div class="equipment-slots">
+            <div class="equipment-slot">
+              <img src="items/tank.png" alt="Weapon" />
+            </div>
+            <div class="equipment-slot">+</div>
+            <div class="equipment-slot">+</div>
+            <div class="equipment-slot">
+              +
+              <div class="notification-dot"></div>
+            </div>
+            <div class="equipment-slot">+</div>
+            <div class="equipment-slot">
+              +
+              <div class="notification-dot"></div>
+            </div>
+            <div class="equipment-slot">+</div>
+          </div>
         </div>
       </div>
-
-      <!-- Crit Chance -->
-      <div class="skill" data-skill="criticalChance">
-        <div class="skill-header">
-          <div class="skill-info">
-            <span class="skill-icon">💥</span>
-            <span class="skill-name">Crit. chance</span>
-            <span class="skill-value" id="value-criticalChance"></span>
+      <div class="config-and-simulation-section">
+        <div id="item-config-panel" class="config-panel hidden">
+        <h4>Item Configuration</h4>
+        <div class="item-details">
+          <!-- MODIFIED: Re-add inventory-item class -->
+          <div id="config-item-icon-container" class="inventory-item">
+            <img id="config-item-icon" src="" alt="Selected Item Icon">
           </div>
-          <div class="skill-buttons">
-            <button class="skill-btn btn-minus" data-skill="criticalChance" data-action="minus">−</button>
-            <button class="skill-btn btn-plus" data-skill="criticalChance" data-action="plus">+</button>
-          </div>
+          <span id="config-item-name">Item Name</span>
         </div>
-        <div class="skill-description">Chance of landing a critical hit.</div>
-        <div class="progress-bar" id="progress-criticalChance">
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
+        <div id="item-stats-config" class="item-stats-config">
+          <!-- Dynamic controls will be generated here -->
+          <p>Select an item from the inventory to configure it.</p>
         </div>
-      </div>
-
-      <!-- Crit Damages -->
-      <div class="skill" data-skill="criticalDamages">
-        <div class="skill-header">
-          <div class="skill-info">
-            <span class="skill-icon">🔥</span>
-            <span class="skill-name">Crit. damages</span>
-            <span class="skill-value" id="value-criticalDamages"></span>
-          </div>
-          <div class="skill-buttons">
-            <button class="skill-btn btn-minus" data-skill="criticalDamages" data-action="minus">−</button>
-            <button class="skill-btn btn-plus" data-skill="criticalDamages" data-action="plus">+</button>
-          </div>
+        <button id="equip-item-btn" class="action-btn">Equip Item</button>
         </div>
-        <div class="skill-description">Increases the damage of critical hits.</div>
-        <div class="progress-bar" id="progress-criticalDamages">
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
+        <div id="simulation-panel" class="simulation-panel">
+        <h4>Damage Simulation</h4>
+        <div id="simulation-log" class="simulation-log">
+          Simulation results will appear here.
         </div>
-      </div>
-
-      <!-- Armor -->
-      <div class="skill" data-skill="armor">
-        <div class="skill-header">
-          <div class="skill-info">
-            <span class="skill-icon">🛡️</span>
-            <span class="skill-name">Armor</span>
-            <span class="skill-value" id="value-armor"></span>
-          </div>
-          <div class="skill-buttons">
-            <button class="skill-btn btn-minus" data-skill="armor" data-action="minus">−</button>
-            <button class="skill-btn btn-plus" data-skill="armor" data-action="plus">+</button>
-          </div>
-        </div>
-        <div class="skill-description">Chance of reducing incoming damage.</div>
-        <div class="progress-bar" id="progress-armor">
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-        </div>
-      </div>
-
-      <!-- Dodge -->
-      <div class="skill" data-skill="dodge">
-        <div class="skill-header">
-          <div class="skill-info">
-            <span class="skill-icon">🌀</span>
-            <span class="skill-name">Dodge</span>
-            <span class="skill-value" id="value-dodge"></span>
-          </div>
-          <div class="skill-buttons">
-            <button class="skill-btn btn-minus" data-skill="dodge" data-action="minus">−</button>
-            <button class="skill-btn btn-plus" data-skill="dodge" data-action="plus">+</button>
-          </div>
-        </div>
-        <div class="skill-description">Dodging incoming damages. Prevents equipment durability from being consumed.</div>
-        <div class="progress-bar" id="progress-dodge">
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-        </div>
-      </div>
-
-      <!-- Health -->
-      <div class="skill" data-skill="health">
-        <div class="skill-header">
-          <div class="skill-info">
-            <span class="skill-icon">❤️</span>
-            <span class="skill-name">Health</span>
-            <span class="skill-value" id="value-health"></span>
-          </div>
-          <div class="skill-buttons">
-            <button class="skill-btn btn-minus" data-skill="health" data-action="minus">−</button>
-            <button class="skill-btn btn-plus" data-skill="health" data-action="plus">+</button>
-          </div>
-        </div>
-        <div class="skill-description">Consumed when hitting in battles.</div>
-        <div class="progress-bar" id="progress-health">
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-        </div>
-      </div>
-
-      <!-- Loot Chance -->
-      <div class="skill" data-skill="lootChance">
-        <div class="skill-header">
-          <div class="skill-info">
-            <span class="skill-icon">📦</span>
-            <span class="skill-name">Loot chance</span>
-            <span class="skill-value" id="value-lootChance"></span>
-          </div>
-          <div class="skill-buttons">
-            <button class="skill-btn btn-minus" data-skill="lootChance" data-action="minus">−</button>
-            <button class="skill-btn btn-plus" data-skill="lootChance" data-action="plus">+</button>
-          </div>
-        </div>
-        <div class="skill-description">Chance to loot weapon or equipment after a battle.</div>
-        <div class="progress-bar" id="progress-lootChance">
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-        </div>
-      </div>
-
-      <!-- Hunger -->
-      <div class="skill" data-skill="hunger">
-        <div class="skill-header">
-          <div class="skill-info">
-            <span class="skill-icon">🍗</span>
-            <span class="skill-name">Hunger</span>
-            <span class="skill-value" id="value-hunger"></span>
-          </div>
-          <div class="skill-buttons">
-            <button class="skill-btn btn-minus" data-skill="hunger" data-action="minus">−</button>
-            <button class="skill-btn btn-plus" data-skill="hunger" data-action="plus">+</button>
-          </div>
-        </div>
-        <div class="skill-description">Limit of food consumption.</div>
-        <div class="progress-bar" id="progress-hunger">
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
-          <div class="progress-block"></div>
+        <button id="simulate-btn" class="action-btn">Simulate Damage</button>
         </div>
       </div>
     </div>
 
-    <!-- CHARACTER CARD SECTION -->
-    <div class="character-section">
-      <div class="character-header">
-        <div class="player-info">
-          <div class="avatar-container">
-            <img src="https://via.placeholder.com/60/4a90e2/ffffff?text=👤" alt="Player Avatar" class="avatar">
-            <div class="level-badge" id="char-level-badge"></div>
-          </div>
-          <div class="character-stats">
-            <!-- Added data-stat-code for tooltip functionality -->
-            <div class="stat-item stat-orange" data-stat-code="attack">🗡️ <span id="char-stat-attack"></span></div>
-            <div class="stat-item stat-orange" data-stat-code="precision">🎯 <span id="char-stat-precision"></span></div>
-            <div class="stat-item stat-red" data-stat-code="criticalChance">💥 <span id="char-stat-criticalChance"></span></div>
-            <div class="stat-item stat-red" data-stat-code="criticalDamages">🔥 <span id="char-stat-criticalDamages"></span></div>
-            <div class="stat-item stat-blue" data-stat-code="armor">🛡️ <span id="char-stat-armor"></span></div>
-            <div class="stat-item stat-blue" data-stat-code="dodge">🌀 <span id="char-stat-dodge"></span></div>
-            <div class="stat-item stat-green" data-stat-code="lootChance">📦 <span id="char-stat-lootChance"></span></div>
-          </div>
-        </div>
-        <div class="character-actions">
-          <button class="action-btn">✖</button>
-          <button class="action-btn">🛒</button>
-          <button class="action-btn hunger-btn">🍗 <span id="char-stat-hunger"></span></button>
-          <button class="action-btn reset-btn" id="reset-btn">🔄 Reset</button> 
-        </div>
-      </div>
-
-      <!-- NEW SECTION: Player Level & Skill Points, Health/Hunger Bars -->
-      <div class="player-status-section">
-        <div class="level-points-display">
-          <div class="stat-label">Level: <span id="player-level-display"></span></div>
-          <div class="level-buttons">
-            <button class="level-btn btn-minus" id="level-minus-btn">−</button>
-            <button class="level-btn btn-plus" id="level-plus-btn">+</button>
-          </div>
-          <div class="stat-label">Skill Points: <span id="skill-points-available"></span>/<span id="skill-points-total"></span></div>
-        </div>
-        <div class="resource-bars">
-            <div class="resource-item">❤️ <span id="health-bar-display"></span></div>
-            <div class="resource-item">🍗 <span id="hunger-bar-display"></span></div>
-        </div>
-      </div>
-      <!-- END NEW SECTION -->
-
-      <div class="equipment-section">
-        <div class="equipment-labels">
-          <span>Weapon</span>
-          <span>Ammo</span>
-          <span>Helmet</span>
-          <span>Chest</span>
-          <span>Pants</span>
-          <span>Boots</span>
-          <span>Gloves</span>
-        </div>
-        <div class="equipment-slots">
-          <div class="equipment-slot">
-            <img src="https://via.placeholder.com/30/666/fff?text=🔫" alt="Weapon">
-          </div>
-          <div class="equipment-slot">+</div>
-          <div class="equipment-slot">+</div>
-          <div class="equipment-slot">
-            +
-            <div class="notification-dot"></div>
-          </div>
-          <div class="equipment-slot">+</div>
-          <div class="equipment-slot">
-            +
-            <div class="notification-dot"></div>
-          </div>
-          <div class="equipment-slot">+</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- INVENTORY SECTION -->
+    <!-- INVENTORY SECTION (CORRECTED data-code ATTRIBUTES) -->
     <div class="inventory-section">
       <div class="inventory-title">Inventory</div>
       <div class="inventory-grid">
-        <!-- Row 1: Gray Tier -->
-        <div class="inventory-item tier-gray"></div>
-        <div class="inventory-item tier-gray"></div>
-        <div class="inventory-item tier-gray"></div>
-        <div class="inventory-item tier-gray"></div>
-        <div class="inventory-item tier-gray"></div>
-        <div class="inventory-item tier-gray"></div>
-        
-        <!-- Row 2: Green Tier -->
-        <div class="inventory-item tier-green"></div>
-        <div class="inventory-item tier-green"></div>
-        <div class="inventory-item tier-green"></div>
-        <div class="inventory-item tier-green"></div>
-        <div class="inventory-item tier-green"></div>
-        <div class="inventory-item tier-green"></div>
-        
-        <!-- Row 3: Blue Tier -->
-        <div class="inventory-item tier-blue"></div>
-        <div class="inventory-item tier-blue"></div>
-        <div class="inventory-item tier-blue"></div>
-        <div class="inventory-item tier-blue"></div>
-        <div class="inventory-item tier-blue"></div>
-        <div class="inventory-item tier-blue"></div>
-        
-        <!-- Row 4: Purple Tier -->
-        <div class="inventory-item tier-purple"></div>
-        <div class="inventory-item tier-purple"></div>
-        <div class="inventory-item tier-purple"></div>
-        <div class="inventory-item tier-purple"></div>
-        <div class="inventory-item tier-purple"></div>
-        <div class="inventory-item tier-purple"></div>
-        
-        <!-- Row 5: Orange Tier -->
-        <div class="inventory-item tier-orange"></div>
-        <div class="inventory-item tier-orange"></div>
-        <div class="inventory-item tier-orange"></div>
-        <div class="inventory-item tier-orange"></div>
-        <div class="inventory-item tier-orange"></div>
-        <div class="inventory-item tier-orange"></div>
+        <!-- Row 1: Common Tier (Gray) -->
+        <div class="inventory-item tier-gray" data-code="pants1">
+          <img src="public/images/items/pants1.png" alt="Gray Pants" />
+        </div>
+        <div class="inventory-item tier-gray" data-code="gloves1">
+          <img src="public/images/items/gloves1.png" alt="Gray Gloves" />
+        </div>
+        <div class="inventory-item tier-gray" data-code="boots1">
+          <img src="public/images/items/boots1.png" alt="Gray Boots" />
+        </div>
+        <div class="inventory-item tier-gray" data-code="chest1">
+          <img src="public/images/items/armor1.png" alt="Gray Armor" />
+        </div>
+        <div class="inventory-item tier-gray" data-code="helmet1">
+          <img src="public/images/items/helmet1.png" alt="Gray Helmet" />
+        </div>
+        <div class="inventory-item tier-gray" data-code="knife">
+          <img src="public/images/items/knife.png" alt="Gray Knife" />
+        </div>
+
+        <!-- Row 2: Uncommon Tier (Green) -->
+        <div class="inventory-item tier-green" data-code="pants2">
+          <img src="public/images/items/pants1.png" alt="Green Pants" />
+        </div>
+        <div class="inventory-item tier-green" data-code="gloves2">
+          <img src="public/images/items/gloves1.png" alt="Green Gloves" />
+        </div>
+        <div class="inventory-item tier-green" data-code="boots2">
+          <img src="public/images/items/boots1.png" alt="Green Boots" />
+        </div>
+        <div class="inventory-item tier-green" data-code="chest2">
+          <img src="public/images/items/armor1.png" alt="Green Armor" />
+        </div>
+        <div class="inventory-item tier-green" data-code="helmet2">
+          <img src="public/images/items/helmet1.png" alt="Green Helmet" />
+        </div>
+        <div class="inventory-item tier-green" data-code="gun">
+          <img src="public/images/items/gun.png" alt="Green Gun" />
+        </div>
+
+        <!-- Row 3: Rare Tier (Blue) -->
+        <div class="inventory-item tier-blue" data-code="pants3">
+          <img src="public/images/items/pants1.png" alt="Blue Pants" />
+        </div>
+        <div class="inventory-item tier-blue" data-code="gloves3">
+          <img src="public/images/items/gloves1.png" alt="Blue Gloves" />
+        </div>
+        <div class="inventory-item tier-blue" data-code="boots3">
+          <img src="public/images/items/boots1.png" alt="Blue Boots" />
+        </div>
+        <div class="inventory-item tier-blue" data-code="chest3">
+          <img src="public/images/items/armor1.png" alt="Blue Armor" />
+        </div>
+        <div class="inventory-item tier-blue" data-code="helmet3">
+          <img src="public/images/items/helmet1.png" alt="Blue Helmet" />
+        </div>
+        <div class="inventory-item tier-blue" data-code="rifle">
+          <img src="public/images/items/rifle.png" alt="Blue Rifle" />
+        </div>
+
+        <!-- Row 4: Epic Tier (Purple) -->
+        <div class="inventory-item tier-purple" data-code="pants4">
+          <img src="public/images/items/helmet1.png" alt="Purple Helmet" />
+        </div>
+        <div class="inventory-item tier-purple" data-code="gloves4">
+          <img src="public/images/items/gloves1.png" alt="Purple Gloves" />
+        </div>
+        <div class="inventory-item tier-purple" data-code="boots4">
+          <img src="public/images/items/boots1.png" alt="Purple Boots" />
+        </div>
+        <div class="inventory-item tier-purple" data-code="chest4">
+          <img src="public/images/items/armor1.png" alt="Purple Armor" />
+        </div>
+        <div class="inventory-item tier-purple" data-code="helmet4">
+          <img src="public/images/items/helmet1.png" alt="Purple Helmet" />
+        </div>
+        <div class="inventory-item tier-purple" data-code="sniper">
+          <img src="public/images/items/sniper.png" alt="Purple Sniper" />
+        </div>
+
+        <!-- Row 5: Legendary Tier (Orange) -->
+        <div class="inventory-item tier-orange" data-code="pants5">
+          <img src="public/images/items/helmet1.png" alt="Orange Helmet" />
+        </div>
+        <div class="inventory-item tier-orange" data-code="gloves5">
+          <img src="public/images/items/gloves1.png" alt="Orange Gloves" />
+        </div>
+        <div class="inventory-item tier-orange" data-code="boots5">
+          <img src="public/images/items/boots1.png" alt="Orange Boots" />
+        </div>
+        <div class="inventory-item tier-orange" data-code="chest5">
+          <img src="public/images/items/armor1.png" alt="Orange Armor" />
+        </div>
+        <div class="inventory-item tier-orange" data-code="helmet5">
+          <img src="public/images/items/helmet1.png" alt="Orange Helmet" />
+        </div>
+        <div class="inventory-item tier-orange" data-code="tank">
+          <img src="public/images/items/tank.png" alt="Orange Tank" />
+        </div>
       </div>
     </div>
-  </div>
-  
-  <!-- Tooltip Structure (hidden by default) -->
-  <div id="stat-tooltip" class="stat-tooltip"></div>
 
-  <script src="script.js"></script> <!-- SCRIPT MOVIDO AQUÍ -->
-</body>
+    <!-- Tooltip Structure (hidden by default) -->
+    <div id="stat-tooltip" class="stat-tooltip"></div>
+
+    <script type="module" src="src/main.js"></script>
+  </body>
 </html>
