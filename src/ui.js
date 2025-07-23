@@ -1,10 +1,8 @@
-import { playerState, MIN_SKILL_LEVEL, MIN_PLAYER_LEVEL, MAX_PLAYER_LEVEL, SKILL_POINTS_PER_LEVEL } from './state.js';
-import { getSkillData, calculateStatDetails } from './calculator.js';
+// --- START OF FILE src/ui.js (CORRECTED) ---
+import { playerState, skillsData, MIN_SKILL_LEVEL, MIN_PLAYER_LEVEL, MAX_PLAYER_LEVEL, SKILL_POINTS_PER_LEVEL } from './state.js';
+import { getSkillData, calculateStatDetails, calculateCumulativeSkillCost } from './calculator.js';
 
-// --- Global UI elements cache ---
 export const ui = {};
-
-// --- Helper Functions ---
 
 function setButtonEnabled(button, enable) {
     if (!button) return;
@@ -14,30 +12,20 @@ function setButtonEnabled(button, enable) {
 
 export function formatSkillValue(skillCode, value) {
   const percentageSkills = ['precision', 'criticalChance', 'criticalDamages', 'armor', 'dodge', 'lootChance'];
-  if (percentageSkills.includes(skillCode)) {
-    return `${value}%`;
-  }
-  return value.toString();
+  return percentageSkills.includes(skillCode) ? `${value}%` : value.toString();
 }
 
 export function applyButtonTransform(button) {
     if (!button.classList.contains('btn-disabled')) {
         button.style.transform = 'scale(0.9)';
-        setTimeout(() => {
-            button.style.transform = 'scale(1)';
-        }, 100);
+        setTimeout(() => { button.style.transform = 'scale(1)'; }, 100);
     }
 }
 
 function formatCodeToName(code) {
     if (!code) return '';
-    return code
-        .replace(/([A-Z])/g, ' $1')
-        .replace(/(\d+)/g, ' $1')
-        .replace(/^./, (str) => str.toUpperCase());
+    return code.replace(/([A-Z])/g, ' $1').replace(/(\d+)/g, ' $1').replace(/^./, str => str.toUpperCase());
 }
-
-// --- Render Functions ---
 
 function renderSkill(skillCode) {
   const skillElements = ui.skillSections[skillCode];
@@ -50,28 +38,17 @@ function renderSkill(skillCode) {
   skillElements.value.textContent = formatSkillValue(skillCode, skillInfo.value);
 
   const progressBlocks = skillElements.progressBar.children;
-  const progressBarColorClasses = {
-      default: 'active',
-      criticalChance: 'active-red', hunger: 'active-red',
-      armor: 'active-blue', dodge: 'active-blue',
-      health: 'active-green', lootChance: 'active-green'
-  };
+  const progressBarColorClasses = { default: 'active', criticalChance: 'active-red', hunger: 'active-red', armor: 'active-blue', dodge: 'active-blue', health: 'active-green', lootChance: 'active-green' };
   const activeClass = progressBarColorClasses[skillCode] || progressBarColorClasses.default;
-
   for (let i = 0; i < progressBlocks.length; i++) {
     const shouldBeActive = i < currentLevel;
     progressBlocks[i].classList.remove('active', 'active-red', 'active-blue', 'active-green');
-    if (shouldBeActive) {
-      progressBlocks[i].classList.add(activeClass);
-    }
+    if (shouldBeActive) progressBlocks[i].classList.add(activeClass);
   }
 
   setButtonEnabled(skillElements.minusBtn, currentLevel > MIN_SKILL_LEVEL);
-
   const nextSkillInfo = getSkillData(skillCode, currentLevel + 1);
-  const canUpgrade = nextSkillInfo && 
-                     playerState.skillPointsAvailable >= nextSkillInfo.cost && 
-                     playerState.playerLevel >= nextSkillInfo.unlockAtLevel;
+  const canUpgrade = nextSkillInfo && playerState.skillPointsAvailable >= nextSkillInfo.cost && playerState.playerLevel >= nextSkillInfo.unlockAtLevel;
   setButtonEnabled(skillElements.plusBtn, canUpgrade);
 
   if (ui.charStats[skillCode] && skillCode !== 'health' && skillCode !== 'hunger') {
@@ -91,28 +68,52 @@ function renderPlayerStatus() {
 }
 
 function renderResourceBars() {
-  const healthSkillInfo = getSkillData('health', playerState.assignedSkillLevels.health);
-  const hungerSkillInfo = getSkillData('hunger', playerState.assignedSkillLevels.hunger);
-  if (healthSkillInfo) {
-    ui.healthBarDisplay.textContent = `${healthSkillInfo.value}/${healthSkillInfo.value}`;
-  }
-  if (hungerSkillInfo) {
-    ui.hungerBarDisplay.textContent = `${hungerSkillInfo.value}/${hungerSkillInfo.value}`;
-    if (ui.charStats.hunger) {
-        ui.charStats.hunger.textContent = hungerSkillInfo.value;
+    const maxHealth = getSkillData('health', playerState.assignedSkillLevels.health)?.value || 50;
+    const healthPercentage = (playerState.currentHealth / maxHealth) * 100;
+    if (ui.healthBarFill) ui.healthBarFill.style.width = `${Math.max(0, healthPercentage)}%`;
+    if (ui.healthBarDisplay) ui.healthBarDisplay.textContent = `${playerState.currentHealth.toFixed(1)} / ${maxHealth}`;
+
+    const maxHunger = getSkillData('hunger', playerState.assignedSkillLevels.hunger)?.value || 10;
+    const hungerPercentage = (playerState.currentHunger / maxHunger) * 100;
+    if (ui.hungerBarFill) ui.hungerBarFill.style.width = `${Math.max(0, hungerPercentage)}%`;
+    if (ui.hungerBarDisplay) ui.hungerBarDisplay.textContent = `${playerState.currentHunger} / ${maxHunger}`;
+}
+
+function renderEquippedItems() {
+    if (!ui.equipmentSlots) return;
+    for (const slot in ui.equipmentSlots) {
+        const slotElement = ui.equipmentSlots[slot];
+        const equippedItem = playerState.equippedItems[slot];
+        if (equippedItem) {
+            const itemInGrid = document.querySelector(`.inventory-item[data-code="${equippedItem.code}"] img`);
+            slotElement.innerHTML = itemInGrid ? `<img src="${itemInGrid.src}" alt="${equippedItem.name}">` : '✔️';
+        } else {
+            slotElement.innerHTML = '+';
+        }
     }
-  }
+}
+
+function renderActiveBuffs() {
+    ui.buffButtons.forEach(button => {
+        const buffCode = button.dataset.buffCode;
+        const buffData = skillsData.skills[buffCode];
+        if (!buffData) return;
+        const buffType = buffData.usage === 'ammo' ? 'ammo' : 'consumable';
+        const isActive = playerState.activeBuffs[buffType]?.code === buffCode;
+        button.classList.toggle('active-buff', isActive);
+    });
 }
 
 export function renderAllUI() {
-  renderPlayerStatus();
-  renderResourceBars();
-  for (const skillCode in playerState.assignedSkillLevels) {
-    renderSkill(skillCode);
-  }
+    renderPlayerStatus();
+    renderResourceBars();
+    renderActiveBuffs();
+    renderEquippedItems();
+    for (const skillCode in playerState.assignedSkillLevels) {
+      renderSkill(skillCode);
+    }
 }
 
-// --- Tooltip Logic ---
 const SKILL_DESCRIPTIONS = {
     attack: "Base value for <em>Damages</em> calculation.",
     precision: "Chance to hit the target.",
@@ -127,23 +128,26 @@ export function handleStatMouseEnter(event) {
     const statItem = event.currentTarget;
     const skillCode = statItem.dataset.statCode;
     const skillName = formatCodeToName(skillCode);
-    const description = SKILL_DESCRIPTIONS[skillCode];
-
-    if (!skillCode || !description) return;
+    const description = SKILL_DESCRIPTIONS[skillCode] || '';
     
     const stats = calculateStatDetails(skillCode);
-    let tooltipContent = `<h4>${skillName}</h4>`;
-    tooltipContent += `<p class="description">${description}</p>`;
-    tooltipContent += `<div class="detail-line"><span class="detail-label">Skill Upgrade:</span> <span class="detail-value">${formatSkillValue(skillCode, stats.skillValue)}</span></div>`;
+    let tooltipContent = `<h4>${skillName}</h4><p class="description">${description}</p>`;
+    tooltipContent += `<div class="detail-line"><span>Skill Upgrade:</span><span>${formatSkillValue(skillCode, stats.skillValue)}</span></div>`;
     if (stats.equipmentItems.length > 0) {
         const itemNames = stats.equipmentItems.map(item => item.name).join(', ');
-        tooltipContent += `<div class="detail-line"><span class="detail-label">Equipment:</span> <span class="detail-value">+${formatSkillValue(skillCode, stats.equipmentValue)} (${itemNames})</span></div>`;
+        tooltipContent += `<div class="detail-line"><span>Equipment:</span><span>+${formatSkillValue(skillCode, stats.equipmentValue)} (${itemNames})</span></div>`;
     }
-    if (skillCode === 'attack' && stats.ammoPercent > 0) {
-        const ammoName = playerState.equippedItems.ammo?.name || 'Ammo';
-        tooltipContent += `<div class="detail-line"><span class="detail-label">Ammo:</span> <span class="detail-value">+${stats.ammoPercent}% (${ammoName})</span></div>`;
+    if (skillCode === 'attack') {
+        if (stats.ammoPercent > 0) {
+            const ammoName = playerState.activeBuffs.ammo?.name || 'Ammo';
+            tooltipContent += `<div class="detail-line"><span>Ammo:</span><span>+${stats.ammoPercent}% (${ammoName})</span></div>`;
+        }
+        if (stats.buffPercent > 0) {
+            const buffName = playerState.activeBuffs.consumable?.name || 'Buff';
+            tooltipContent += `<div class="detail-line"><span>Buff:</span><span>+${stats.buffPercent}% (${buffName})</span></div>`;
+        }
     }
-    tooltipContent += `<div class="total-line"><span class="detail-label">Total:</span> <span class="detail-value">${formatSkillValue(skillCode, stats.total)}</span></div>`;
+    tooltipContent += `<div class="total-line"><span>Total:</span><span>${formatSkillValue(skillCode, stats.total)}</span></div>`;
     
     ui.statTooltip.innerHTML = tooltipContent;
     ui.statTooltip.style.opacity = 1;
@@ -152,16 +156,11 @@ export function handleStatMouseEnter(event) {
     ui.statTooltip.style.top = `${rect.top + window.scrollY}px`;
 }
 
-export function handleStatMouseLeave() {
-    ui.statTooltip.style.opacity = 0;
-}
+export function handleStatMouseLeave() { ui.statTooltip.style.opacity = 0; }
 
-// --- Item Configuration Panel Logic ---
 export function showItemInConfigPanel(itemData) {
     if (!ui.itemConfigPanel || !itemData) return;
-
     ui.configItemName.textContent = formatCodeToName(itemData.code);
-    
     const itemElementInGrid = document.querySelector(`.inventory-item[data-code="${itemData.code}"]`);
     if (itemElementInGrid) {
         const originalImg = itemElementInGrid.querySelector('img');
@@ -169,17 +168,10 @@ export function showItemInConfigPanel(itemData) {
             ui.configItemIcon.src = originalImg.src;
             ui.configItemIcon.alt = originalImg.alt;
         }
-
         ui.configItemIconContainer.className = 'inventory-item';
         const tierClasses = ['tier-gray', 'tier-green', 'tier-blue', 'tier-purple', 'tier-orange'];
-        for (const tierClass of tierClasses) {
-            if (itemElementInGrid.classList.contains(tierClass)) {
-                ui.configItemIconContainer.classList.add(tierClass);
-                break;
-            }
-        }
+        tierClasses.forEach(tc => { if (itemElementInGrid.classList.contains(tc)) ui.configItemIconContainer.classList.add(tc); });
     }
-
     ui.itemStatsConfig.innerHTML = '';
     if (!itemData.dynamicStats || Object.keys(itemData.dynamicStats).length === 0) {
         ui.itemStatsConfig.textContent = 'This item has no configurable stats.';
@@ -187,59 +179,87 @@ export function showItemInConfigPanel(itemData) {
     } else {
         for (const [statCode, range] of Object.entries(itemData.dynamicStats)) {
             const [min, max] = range;
-            const statName = formatCodeToName(statCode);
             const valueDisplayId = `config-value-${statCode}`;
-            const formattedValue = formatSkillValue(statCode, min);
             const controlRow = document.createElement('div');
             controlRow.className = 'stat-config-row';
-            controlRow.innerHTML = `
-                <label for="config-slider-${statCode}">${statName}</label>
-                <input type="range" id="config-slider-${statCode}" data-stat="${statCode}" min="${min}" max="${max}" value="${min}" step="1">
-                <span class="stat-value" id="${valueDisplayId}">${formattedValue}</span>
-            `;
+            controlRow.innerHTML = `<label>${formatCodeToName(statCode)}</label><input type="range" data-stat="${statCode}" min="${min}" max="${max}" value="${min}" step="1"><span class="stat-value" id="${valueDisplayId}">${formatSkillValue(statCode, min)}</span>`;
             ui.itemStatsConfig.appendChild(controlRow);
-            const slider = controlRow.querySelector('input[type="range"]');
-            slider.addEventListener('input', (event) => {
-                document.getElementById(valueDisplayId).textContent = formatSkillValue(statCode, event.target.value);
-            });
+            controlRow.querySelector('input').addEventListener('input', e => { document.getElementById(valueDisplayId).textContent = formatSkillValue(statCode, e.target.value); });
         }
         setButtonEnabled(ui.equipItemBtn, true);
     }
     ui.itemConfigPanel.classList.remove('hidden');
 }
 
-// --- DOM Element Caching ---
+export function hideItemConfigPanel() {
+    if (!ui.itemConfigPanel) return;
+    ui.itemConfigPanel.classList.add('hidden');
+    ui.itemStatsConfig.innerHTML = '<p>Select an item from the inventory to configure it.</p>';
+    playerState.selectedItemForConfig = null;
+}
+
+// FIX: Removed the duplicate function. This is the correct, final version.
+export function renderSimulationLog(result, summaryOverride = null) {
+    if (!ui.simulationLog) return;
+    
+    if (ui.simulationLog.children.length > 50) {
+        ui.simulationLog.lastChild.remove();
+    }
+
+    const logEntry = document.createElement('div');
+    logEntry.className = 'log-entry';
+
+    const summary = document.createElement('div');
+    summary.className = 'log-summary';
+    if (summaryOverride) {
+        summary.innerHTML = summaryOverride;
+    } else {
+        const damageClass = result.wasCritical ? 'log-critical' : 'log-normal';
+        summary.innerHTML = `
+          <p><strong>Damage Dealt:</strong> <span class="${damageClass}">${result.finalDamageDealt}</span></p>
+          <p><strong>Health Lost:</strong> <span class="log-health-lost">${result.healthLost}</span></p>
+        `;
+    }
+
+    const details = document.createElement('ul');
+    details.className = 'log-details';
+    result.log.forEach(entry => {
+        const li = document.createElement('li');
+        li.innerHTML = entry;
+        details.appendChild(li);
+    });
+    
+    logEntry.appendChild(summary);
+    logEntry.appendChild(details);
+
+    ui.simulationLog.prepend(logEntry);
+}
+
 export function cacheDOMElements() {
+    // FIX: Cleaned up duplicate assignments
+    ui.healthBarFill = document.getElementById('health-bar-fill');
+    ui.healthBarDisplay = document.getElementById('health-bar-display');
+    ui.hungerBarFill = document.getElementById('hunger-bar-fill');
+    ui.hungerBarDisplay = document.getElementById('hunger-bar-display');
+    ui.simulateFullBtn = document.getElementById('simulate-full-btn');
     ui.playerLevelDisplay = document.getElementById('player-level-display');
     ui.charLevelBadge = document.getElementById('char-level-badge');
     ui.levelMinusBtn = document.getElementById('level-minus-btn');
     ui.levelPlusBtn = document.getElementById('level-plus-btn');
     ui.skillPointsAvailable = document.getElementById('skill-points-available');
     ui.skillPointsTotal = document.getElementById('skill-points-total');
-    ui.healthBarDisplay = document.getElementById('health-bar-display');
-    ui.hungerBarDisplay = document.getElementById('hunger-bar-display');
     ui.resetBtn = document.getElementById('reset-btn');
     ui.statTooltip = document.getElementById('stat-tooltip');
-    
     ui.skillSections = {};
-    document.querySelectorAll('.skill').forEach(skillDiv => {
-        const skillCode = skillDiv.dataset.skill;
-        if (skillCode) {
-            ui.skillSections[skillCode] = {
-                value: skillDiv.querySelector(`#value-${skillCode}`),
-                progressBar: skillDiv.querySelector(`#progress-${skillCode}`),
-                minusBtn: skillDiv.querySelector(`[data-skill="${skillCode}"][data-action="minus"]`),
-                plusBtn: skillDiv.querySelector(`[data-skill="${skillCode}"][data-action="plus"]`),
-            };
-        }
-    });
-
+    document.querySelectorAll('.skill').forEach(el => { ui.skillSections[el.dataset.skill] = { value: el.querySelector('.skill-value'), progressBar: el.querySelector('.progress-bar'), minusBtn: el.querySelector('.btn-minus'), plusBtn: el.querySelector('.btn-plus') }; });
     ui.charStats = {};
-    document.querySelectorAll('.character-stats .stat-item[data-stat-code]').forEach(statEl => {
-        ui.charStats[statEl.dataset.statCode] = statEl.querySelector('span');
-    });
+    document.querySelectorAll('.character-stats .stat-item[data-stat-code]').forEach(el => { ui.charStats[el.dataset.statCode] = el.querySelector('span'); });
     ui.charStats.hunger = document.getElementById('char-stat-hunger');
-
+    ui.equipmentSlots = {};
+    document.querySelectorAll('.equipment-slot[data-slot]').forEach(el => { ui.equipmentSlots[el.dataset.slot] = el; });
+    ui.equipmentSlotsContainer = document.querySelector('.equipment-slots');
+    ui.buffSelection = document.querySelector('.buff-selection');
+    ui.buffButtons = document.querySelectorAll('.buff-btn');
     ui.itemConfigPanel = document.getElementById('item-config-panel');
     ui.configItemName = document.getElementById('config-item-name');
     ui.configItemIcon = document.getElementById('config-item-icon');
@@ -247,4 +267,52 @@ export function cacheDOMElements() {
     ui.itemStatsConfig = document.getElementById('item-stats-config');
     ui.equipItemBtn = document.getElementById('equip-item-btn');
     ui.inventoryGrid = document.querySelector('.inventory-grid');
+    ui.simulateBtn = document.getElementById('simulate-btn');
+    ui.simulationLog = document.getElementById('simulation-log');
+}
+
+function getProgressBlockInfo(target) {
+    const block = target.closest('.progress-block');
+    if (!block) return null;
+    const skillContainer = target.closest('.skill');
+    const skillCode = skillContainer?.dataset.skill;
+    if (!skillCode) return null;
+    const blocks = Array.from(block.parentNode.children);
+    const index = blocks.indexOf(block);
+    const level = index + 1;
+    return { block, skillCode, level };
+}
+
+export function handleProgressBlockMouseEnter(event) {
+    const info = getProgressBlockInfo(event.target);
+    if (!info) return;
+    const { block, skillCode, level } = info;
+    const skillDataForLevel = getSkillData(skillCode, level);
+    if (!skillDataForLevel) return;
+    const totalCost = calculateCumulativeSkillCost(skillCode, level);
+    const skillName = formatCodeToName(skillCode);
+    const tooltipContent = `
+        <h4>Level ${level} - ${skillName}</h4>
+        <div class="detail-line">
+            <span class="detail-label">Base Value:</span>
+            <span class="detail-value">${formatSkillValue(skillCode, skillDataForLevel.value)}</span>
+        </div>
+        <div class="detail-line">
+            <span class="detail-label">Cost for this level:</span>
+            <span class="detail-value">${skillDataForLevel.cost} SP</span>
+        </div>
+        <div class="detail-line">
+            <span class="detail-label">Total cost to reach:</span>
+            <span class="detail-value">${totalCost} SP</span>
+        </div>
+    `;
+    ui.statTooltip.innerHTML = tooltipContent;
+    ui.statTooltip.style.opacity = 1;
+    const rect = block.getBoundingClientRect();
+    ui.statTooltip.style.left = `${rect.left + window.scrollX + rect.width / 2 - ui.statTooltip.offsetWidth / 2}px`;
+    ui.statTooltip.style.top = `${rect.top + window.scrollY - ui.statTooltip.offsetHeight - 10}px`;
+}
+
+export function handleProgressBlockMouseLeave() {
+    ui.statTooltip.style.opacity = 0;
 }

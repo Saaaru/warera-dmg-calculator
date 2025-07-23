@@ -1,11 +1,7 @@
+// --- START OF FILE src/calculator.js (CORRECTED) ---
+
 import { skillsData, playerState, MIN_SKILL_LEVEL, MAX_SKILL_LEVEL } from './state.js';
 
-/**
- * Gets skill data for a specific level.
- * @param {string} skillCode - The unique skill code.
- * @param {number} level - The skill level.
- * @returns {object|null} The skill data or null.
- */
 export function getSkillData(skillCode, level) {
   if (!skillsData || !skillsData.skills || !skillsData.skills[skillCode]) {
     return null;
@@ -14,33 +10,39 @@ export function getSkillData(skillCode, level) {
   return skillsData.skills[skillCode][validLevel.toString()];
 }
 
-/**
- * Calculates the detailed breakdown of a stat, including base, equipment, and buffs.
- * @param {string} skillCode - The code of the stat to calculate.
- * @returns {object} An object with the breakdown and total.
- */
+export function calculateCumulativeSkillCost(skillCode, level) {
+    if (!skillsData || !skillsData.skills || !skillsData.skills[skillCode] || level <= MIN_SKILL_LEVEL) {
+        return 0;
+    }
+    let totalCost = 0;
+    for (let i = 1; i <= level; i++) {
+        const levelData = getSkillData(skillCode, i);
+        if (levelData && levelData.cost) {
+            totalCost += levelData.cost;
+        }
+    }
+    return totalCost;
+}
+
 export function calculateStatDetails(skillCode) {
     const currentSkillLevel = playerState.assignedSkillLevels[skillCode];
     const skillBaseInfo = getSkillData(skillCode, currentSkillLevel);
     const skillValue = skillBaseInfo ? skillBaseInfo.value : 0;
+    
+    const { equippedItems, activeBuffs } = playerState;
 
     let equipmentValue = 0;
     let equipmentItems = [];
     let ammoPercent = 0;
-    let buffPercent = 0; // Placeholder for future buff system
+    let buffPercent = 0;
     let total = skillValue;
-
-    const { equippedItems } = playerState;
 
     switch (skillCode) {
         case 'attack':
-            // REFACTORED: Read from playerState instead of MOCK
             equipmentValue = equippedItems.weapon?.stats?.attack || 0;
             if (equippedItems.weapon) equipmentItems.push(equippedItems.weapon);
-            
-            ammoPercent = equippedItems.ammo?.stats?.percentAttack || 0;
-            // buffPercent will be handled later if a buff system is implemented
-            
+            ammoPercent = activeBuffs.ammo?.stats?.percentAttack || 0;
+            buffPercent = activeBuffs.consumable?.stats?.percentAttack || 0;
             total = (skillValue + equipmentValue) * (1 + (ammoPercent / 100) + (buffPercent / 100));
             break;
         case 'precision':
@@ -49,7 +51,6 @@ export function calculateStatDetails(skillCode) {
             total = skillValue + equipmentValue;
             break;
         case 'criticalChance':
-            // Also check weapon for critical chance
             equipmentValue = (equippedItems.weapon?.stats?.criticalChance || 0);
             if (equippedItems.weapon) equipmentItems.push(equippedItems.weapon);
             total = skillValue + equipmentValue;
@@ -73,17 +74,102 @@ export function calculateStatDetails(skillCode) {
             total = skillValue + equipmentValue;
             break;
         case 'lootChance':
-            // Assuming no equipment affects loot chance for now
-            total = skillValue + equipmentValue;
+            total = skillValue;
             break;
     }
 
     return {
         skillValue,
         equipmentValue,
-        equipmentItems, // Pass item info for tooltips
+        equipmentItems,
         ammoPercent,
         buffPercent,
         total: parseFloat(total.toFixed(1))
     };
+}
+
+export function simulateFullCombat() {
+    let totalDamageDealt = 0;
+    let ticksSurvived = 0;
+    let fullLog = [];
+    let tempCurrentHealth = playerState.currentHealth;
+    const MAX_TICKS = 1000;
+
+    while (tempCurrentHealth > 0 && ticksSurvived < MAX_TICKS) {
+        const tickResult = simulateCombatTick();
+        tempCurrentHealth -= tickResult.healthLost;
+        if (tempCurrentHealth >= 0 || (tempCurrentHealth < 0 && ticksSurvived === 0)) {
+            totalDamageDealt += tickResult.finalDamageDealt;
+        }
+        ticksSurvived++;
+        const healthAfterTick = Math.max(0, tempCurrentHealth).toFixed(1);
+        fullLog.push(`--- Hit ${ticksSurvived} (Health: ${healthAfterTick}) ---`);
+        fullLog.push(...tickResult.log);
+    }
+
+    if (ticksSurvived >= MAX_TICKS) {
+        fullLog.push("--- SIMULATION STOPPED: Maximum number of hits reached. ---");
+    }
+
+    return {
+        totalDamageDealt: parseFloat(totalDamageDealt.toFixed(1)),
+        ticksSurvived,
+        log: fullLog,
+        finalHealth: Math.max(0, tempCurrentHealth)
+    };
+}
+
+// FIX: Removed duplicate. This is the single, correct definition.
+export function simulateCombatTick() {
+  const attackStats = calculateStatDetails('attack');
+  const precisionStats = calculateStatDetails('precision');
+  const critChanceStats = calculateStatDetails('criticalChance');
+  const critDamageStats = calculateStatDetails('criticalDamages');
+  const armorStats = calculateStatDetails('armor');
+  const dodgeStats = calculateStatDetails('dodge');
+  
+  let log = [];
+  let finalDamageDealt = 0;
+  let healthLost = 10;
+
+  const wasDodge = Math.random() * 100 < dodgeStats.total;
+  if (wasDodge) {
+      healthLost = 0;
+      log.push('<strong>DODGE!</strong> No health was lost.');
+  } else {
+      const damageReduction = healthLost * (armorStats.total / 100);
+      healthLost -= damageReduction;
+      log.push(`<strong>ARMOR</strong> reduced health loss by ${damageReduction.toFixed(1)}.`);
+  }
+
+  let baseDamage = attackStats.total;
+  log.push(`Base damage potential is ${baseDamage.toFixed(1)}.`);
+
+  const wasHit = Math.random() * 100 < precisionStats.total;
+  if (!wasHit) {
+      baseDamage /= 2;
+      log.push('<strong>MISS!</strong> Damage was halved.');
+  } else {
+      log.push('<strong>HIT!</strong> Full damage potential.');
+  }
+  
+  const wasCritical = Math.random() * 100 < critChanceStats.total;
+  if (wasCritical) {
+      const critMultiplier = 1 + (critDamageStats.total / 100);
+      const criticalDamageBonus = baseDamage * (critDamageStats.total / 100);
+      finalDamageDealt = baseDamage * critMultiplier;
+      log.push(`<strong>CRITICAL HIT!</strong> Damage multiplied by ${critMultiplier.toFixed(2)} (+${criticalDamageBonus.toFixed(1)}).`);
+  } else {
+      finalDamageDealt = baseDamage;
+      log.push('Normal hit.');
+  }
+
+  return {
+      finalDamageDealt: parseFloat(finalDamageDealt.toFixed(1)),
+      healthLost: parseFloat(healthLost.toFixed(1)),
+      log,
+      wasCritical,
+      wasHit,
+      wasDodge,
+  };
 }
