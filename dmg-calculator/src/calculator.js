@@ -1,4 +1,4 @@
-// --- START OF FILE src/calculator.js (CORRECTED) ---
+// Calculation logic: Provides functions for skill calculations, combat simulations, and stat details.
 
 import { skillsData, playerState, MIN_SKILL_LEVEL, MAX_SKILL_LEVEL } from './state.js';
 
@@ -25,18 +25,15 @@ export function calculateCumulativeSkillCost(skillCode, level) {
 }
 
 export function calculateStatDetails(skillCode) {
-    const currentSkillLevel = playerState.assignedSkillLevels[skillCode];
+    const currentSkillLevel = playerState.skillLevelsAssigned[skillCode];
     const skillBaseInfo = getSkillData(skillCode, currentSkillLevel);
     const skillValue = skillBaseInfo ? skillBaseInfo.value : 0;
-    
     const { equippedItems, activeBuffs } = playerState;
-
     let equipmentValue = 0;
     let equipmentItems = [];
     let ammoPercent = 0;
     let buffPercent = 0;
     let total = skillValue;
-
     switch (skillCode) {
         case 'attack':
             equipmentValue = equippedItems.weapon?.stats?.attack || 0;
@@ -77,7 +74,6 @@ export function calculateStatDetails(skillCode) {
             total = skillValue;
             break;
     }
-
     return {
         skillValue,
         equipmentValue,
@@ -89,14 +85,11 @@ export function calculateStatDetails(skillCode) {
 }
 
 export function simulateFullCombat() {
-    // Esta función ahora es un wrapper simple sin comida.
-    // La nueva lógica estará en simulateFullCombatWithFood
     let totalDamageDealt = 0;
     let ticksSurvived = 0;
     let fullLog = [];
     let tempCurrentHealth = playerState.currentHealth;
     const MAX_TICKS = 1000;
-
     while (tempCurrentHealth > 0 && ticksSurvived < MAX_TICKS) {
         const tickResult = simulateCombatTick();
         tempCurrentHealth -= tickResult.healthLost;
@@ -108,11 +101,9 @@ export function simulateFullCombat() {
         fullLog.push(`--- Hit ${ticksSurvived} (Health: ${healthAfterTick}) ---`);
         fullLog.push(...tickResult.log);
     }
-
     if (ticksSurvived >= MAX_TICKS) {
         fullLog.push("--- SIMULATION STOPPED: Maximum number of hits reached. ---");
     }
-
     return {
         totalDamageDealt: parseFloat(totalDamageDealt.toFixed(1)),
         ticksSurvived,
@@ -121,89 +112,57 @@ export function simulateFullCombat() {
     };
 }
 
-
-// NUEVA FUNCIÓN PARA LA SIMULACIÓN CON COMIDA
 export function simulateFullCombatWithFood(foodItem) {
     let totalDamageDealt = 0;
     let ticksSurvived = 0;
     let fullLog = [];
-    
     let tempCurrentHealth = playerState.currentHealth;
     let tempCurrentHunger = playerState.currentHunger;
-
     const healthPerFood = foodItem.flatStats.healthRegen || 0;
-    const maxHealthFromSkills = getSkillData('health', playerState.assignedSkillLevels.health)?.value || 50;
-    const INCOMING_DAMAGE_PER_TICK = 10; // Daño base que se recibe por golpe
-
+    const maxHealthFromSkills = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
+    const INCOMING_DAMAGE_PER_TICK = 10;
     const MAX_TICKS = 2000;
-
     fullLog.push(`--- Simulation started with ${foodItem.name} (+${healthPerFood} HP per hunger point) ---`);
-
     while (ticksSurvived < MAX_TICKS) {
-        // --- COMIENZO DEL NUEVO FLUJO LÓGICO ---
-
-        // 1. VERIFICACIÓN DE PÁNICO Y CONSUMO DE COMIDA (ANTES DE RECIBIR EL GOLPE)
-        // Si la vida es críticamente baja Y el personaje puede comer, entra en un bucle de consumo.
         if (tempCurrentHealth <= INCOMING_DAMAGE_PER_TICK && tempCurrentHunger > 0 && healthPerFood > 0) {
             fullLog.push(`<strong>CRITICAL HEALTH!</strong> HP at ${tempCurrentHealth.toFixed(1)}. Attempting to eat.`);
-            
-            // Bucle de consumo: comer hasta estar seguro o no poder más.
             while (tempCurrentHunger > 0 && tempCurrentHealth <= INCOMING_DAMAGE_PER_TICK) {
-                // Guarda de seguridad para la regla de sobrecuración: no comer si la vida ya es >= maxHealth
                 if (tempCurrentHealth >= maxHealthFromSkills) {
                     fullLog.push(`Stopped eating: health is full or overcharged (${tempCurrentHealth.toFixed(1)} / ${maxHealthFromSkills}).`);
                     break;
                 }
-
                 tempCurrentHunger--;
                 const healthBeforeHeal = tempCurrentHealth;
                 tempCurrentHealth += healthPerFood;
                 fullLog.push(`<strong>ATE ${foodItem.name.toUpperCase()}!</strong> Healed for ${healthPerFood}. HP: ${healthBeforeHeal.toFixed(1)} -> ${tempCurrentHealth.toFixed(1)}. Hunger left: ${tempCurrentHunger}.`);
             }
         }
-        
-        // 2. VERIFICACIÓN DE FIN DE COMBATE
-        // Si después de intentar comer, la vida sigue siendo insuficiente para sobrevivir el próximo golpe, el combate termina.
         if (tempCurrentHealth <= 0) {
             fullLog.push(`--- COMBAT ENDED: Player defeated. Not enough health to continue. ---`);
             break;
         }
-
-        // 3. EJECUCIÓN DEL TICK DE COMBATE (Hacer y recibir daño)
-        const tickResult = simulateCombatTick(); // Esta función ya calcula el daño recibido y hecho.
-        
-        // Aplicar el daño recibido en este tick
+        const tickResult = simulateCombatTick();
         const healthLostThisTick = tickResult.healthLost;
         tempCurrentHealth -= healthLostThisTick;
-        
-        // Sumar el daño infligido en este tick
         totalDamageDealt += tickResult.finalDamageDealt;
         ticksSurvived++;
-
-        // 4. REGISTRO DEL LOG
         const healthAfterDamage = tempCurrentHealth;
         let logEntry = `--- Hit ${ticksSurvived} | HP left: ${Math.max(0, healthAfterDamage).toFixed(1)} | Hunger: ${tempCurrentHunger} ---`;
         fullLog.push(logEntry);
-        fullLog.push(...tickResult.log); // Añadir los detalles del golpe (miss, critical, etc.)
-
-        // Si la vida llega a 0 después de este golpe, el siguiente bucle lo detectará y terminará el combate.
+        fullLog.push(...tickResult.log);
     }
-
     if (ticksSurvived >= MAX_TICKS) {
         fullLog.push("--- SIMULATION STOPPED: Maximum number of hits reached. ---");
     }
-
     return {
         totalDamageDealt: parseFloat(totalDamageDealt.toFixed(1)),
         ticksSurvived,
         log: fullLog,
         finalHealth: Math.max(0, tempCurrentHealth),
-        // CORRECCIÓN: Añadir el hambre restante al objeto de retorno.
         finalHunger: tempCurrentHunger 
     };
 }
 
-// FIX: Removed duplicate. This is the single, correct definition.
 export function simulateCombatTick() {
   const attackStats = calculateStatDetails('attack');
   const precisionStats = calculateStatDetails('precision');
@@ -211,11 +170,9 @@ export function simulateCombatTick() {
   const critDamageStats = calculateStatDetails('criticalDamages');
   const armorStats = calculateStatDetails('armor');
   const dodgeStats = calculateStatDetails('dodge');
-  
   let log = [];
   let finalDamageDealt = 0;
   let healthLost = 10;
-
   const wasDodge = Math.random() * 100 < dodgeStats.total;
   if (wasDodge) {
       healthLost = 0;
@@ -225,10 +182,8 @@ export function simulateCombatTick() {
       healthLost -= damageReduction;
       log.push(`<strong>ARMOR</strong> reduced health loss by ${damageReduction.toFixed(1)}.`);
   }
-
   let baseDamage = attackStats.total;
   log.push(`Base damage potential is ${baseDamage.toFixed(1)}.`);
-
   const wasHit = Math.random() * 100 < precisionStats.total;
   if (!wasHit) {
       baseDamage /= 2;
@@ -236,7 +191,6 @@ export function simulateCombatTick() {
   } else {
       log.push('<strong>HIT!</strong> Full damage potential.');
   }
-  
   const wasCritical = Math.random() * 100 < critChanceStats.total;
   if (wasCritical) {
       const critMultiplier = 1 + (critDamageStats.total / 100);
@@ -247,7 +201,6 @@ export function simulateCombatTick() {
       finalDamageDealt = baseDamage;
       log.push('Normal hit.');
   }
-
   return {
       finalDamageDealt: parseFloat(finalDamageDealt.toFixed(1)),
       healthLost: parseFloat(healthLost.toFixed(1)),

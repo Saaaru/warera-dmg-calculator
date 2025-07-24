@@ -57,6 +57,7 @@
             <div class="consumable-buffs"><button class="buff-btn tier-red" data-buff-code="cocain" title="Pill (+80% Attack)">💊</button></div>
           </div>
           <div class="resource-bars">
+            <button class="action-btn" id="full-restore-btn">✨ Full Restore</button>
             <div class="resource-item"><span>❤️</span><div class="bar-container" id="health-bar-container"><div class="bar-fill" id="health-bar-fill"></div><span class="bar-text" id="health-bar-display"></span></div></div>
             <div class="resource-item"><span>🍗</span><div class="bar-container" id="hunger-bar-container"><div class="bar-fill" id="hunger-bar-fill"></div><span class="bar-text" id="hunger-bar-display"></span></div></div>
           </div>
@@ -75,12 +76,23 @@
           <div id="item-stats-config" class="item-stats-config"><p>Select an item from the inventory to configure it.</p></div>
           <button id="equip-item-btn" class="action-btn">Equip Item</button>
         </div>
+        <div id="presets-section" class="config-panel">
+          <h4>Build Presets</h4>
+          <div class="preset-save-form">
+            <input type="text" id="preset-name-input" placeholder="Preset Name">
+            <button id="save-preset-btn" class="action-btn">💾 Save Current Build</button>
+          </div>
+          <div id="presets-list-container">
+            <p>No presets saved yet.</p>
+          </div>
+        </div>
         <div id="simulation-panel" class="simulation-panel">
           <button id="simulate-btn" class="action-btn">Simulate Damage</button>
           <button id="simulate-full-btn" class="action-btn">Simulate Full Combat</button>
           <h4>Damage Simulation</h4>
           <div id="simulation-log" class="simulation-log"> Simulation results will appear here. </div>
         </div>
+        
       </div>
     </div>
 

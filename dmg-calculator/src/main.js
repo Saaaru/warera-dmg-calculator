@@ -1,28 +1,28 @@
-// --- START OF FILE src/main.js (CORRECTED & CLEANED) ---
+// Main file: Handles initialization, events, and interaction logic for the damage simulator and player management.
 
-import { 
-  playerState, 
-  setSkillsData, 
-  skillsData, 
-  resetPlayerState, 
-  SKILL_POINTS_PER_LEVEL, 
-  MIN_PLAYER_LEVEL, 
-  MAX_PLAYER_LEVEL, 
-  MAX_SKILL_LEVEL, 
-  MIN_SKILL_LEVEL 
+import {
+  playerState,
+  setSkillsData,
+  skillsData,
+  resetPlayerState,
+  SKILL_POINTS_PER_LEVEL,
+  MIN_PLAYER_LEVEL,
+  MAX_PLAYER_LEVEL,
+  MAX_SKILL_LEVEL,
+  MIN_SKILL_LEVEL
 } from './state.js';
-import { 
-  getSkillData, 
-  simulateCombatTick, 
-  calculateCumulativeSkillCost, 
+import {
+  getSkillData,
+  simulateCombatTick,
+  calculateCumulativeSkillCost,
   simulateFullCombatWithFood,
-  calculateStatDetails 
+  calculateStatDetails
 } from './calculator.js';
-import { 
-  ui, 
-  cacheDOMElements, 
-  renderAllUI, 
-  showItemInConfigPanel,
+import {
+  ui,
+  cacheDOMElements,
+  renderAllUI,
+  showItemConfigPanel,
   hideItemConfigPanel,
   handleStatMouseEnter,
   handleStatMouseLeave,
@@ -46,47 +46,225 @@ async function fetchJsonData(path) {
   }
 }
 
-// --- Event Handlers ---
+const PRESETS_STORAGE_KEY = 'playerBuildPresets';
+
+/**
+ * Obtiene los presets del localStorage de forma segura.
+ * @returns {Array} Un array de presets o un array vacío si no hay nada o hay un error.
+ */
+function getPresetsFromStorage() {
+  try {
+    const presetsJson = localStorage.getItem(PRESETS_STORAGE_KEY);
+    return presetsJson ? JSON.parse(presetsJson) : [];
+  } catch (error) {
+    console.error("Error parsing presets from localStorage:", error);
+    // Si los datos están corruptos, los eliminamos para evitar errores futuros.
+    localStorage.removeItem(PRESETS_STORAGE_KEY);
+    return [];
+  }
+}
+
+function renderPresetsList() {
+  const presets = getPresetsFromStorage();
+  ui.presetsListContainer.innerHTML = ''; // Limpiar contenedor
+
+  if (presets.length === 0) {
+    ui.presetsListContainer.innerHTML = '<p>No presets saved yet.</p>';
+    return;
+  }
+
+  presets.forEach(preset => {
+    const presetElement = document.createElement('div');
+    presetElement.className = 'preset-item';
+    presetElement.innerHTML = `
+      <span class="preset-name" title="${preset.name}">${preset.name}</span>
+      <div class="preset-actions">
+        <button class="action-btn preset-btn load-btn" data-preset-name="${preset.name}">Load</button>
+        <button class="action-btn preset-btn delete-btn" data-preset-name="${preset.name}">Delete</button>
+      </div>
+    `;
+    ui.presetsListContainer.appendChild(presetElement);
+  });
+}
+
+/**
+ * Maneja el guardado de un nuevo preset.
+ */
+function handleSavePreset() {
+  // === INICIO: LÓGICA MODIFICADA PARA EL NOMBRE DEL PRESET ===
+
+  // 1. Obtener la entrada del usuario.
+  const userInput = ui.presetNameInput.value.trim();
+
+  // 2. Generar siempre el resumen de habilidades.
+  const keySkillsForNaming = [
+    { code: 'attack', emoji: '🗡️' },
+    { code: 'precision', emoji: '🎯' },
+    { code: 'criticalChance', emoji: '💥' },
+    { code: 'criticalDamages', emoji: '🔥' },
+    { code: 'armor', emoji: '🛡️' },
+    { code: 'dodge', emoji: '🌀' }
+  ];
+  
+  const skillSummary = keySkillsForNaming.map(skill => {
+    const level = playerState.skillLevelsAssigned[skill.code];
+    return `${skill.emoji} ${level}`;
+  }).join(' | ');
+
+  // 3. Combinar la entrada del usuario y el resumen para crear el nombre final.
+  let finalPresetName;
+  if (userInput) {
+    // Si el usuario escribió algo, lo usamos como prefijo.
+    finalPresetName = `${userInput} || ${skillSummary}`;
+  } else {
+    // Si el campo está vacío, usamos solo el resumen como nombre.
+    finalPresetName = skillSummary;
+  }
+  
+  // === FIN: LÓGICA MODIFICADA ===
+
+  const presets = getPresetsFromStorage();
+  // Usamos el nombre final para buscar duplicados.
+  const existingPresetIndex = presets.findIndex(p => p.name === finalPresetName);
+
+  if (existingPresetIndex > -1) {
+    if (!confirm(`A preset named "${finalPresetName}" already exists. Do you want to overwrite it?`)) {
+      return;
+    }
+  }
+
+  const stateSnapshot = {
+    playerLevel: playerState.playerLevel,
+    skillLevelsAssigned: JSON.parse(JSON.stringify(playerState.skillLevelsAssigned)),
+    equippedItems: JSON.parse(JSON.stringify(playerState.equippedItems)),
+    activeBuffs: JSON.parse(JSON.stringify(playerState.activeBuffs)),
+  };
+
+  const newPreset = {
+    name: finalPresetName, // Guardar el nombre final combinado.
+    timestamp: new Date().toISOString(),
+    stateSnapshot,
+  };
+
+  if (existingPresetIndex > -1) {
+    presets[existingPresetIndex] = newPreset;
+  } else {
+    presets.push(newPreset);
+  }
+
+  savePresetsToStorage(presets);
+  ui.presetNameInput.value = ''; // Limpiar input
+  renderPresetsList();
+}
+
+/**
+ * Carga un preset seleccionado, sobreescribiendo el estado actual.
+ * @param {string} presetName El nombre del preset a cargar.
+ */
+function handleLoadPreset(presetName) {
+  if (!confirm('Are you sure you want to load this preset? Your current build will be overwritten.')) {
+    return;
+  }
+
+  const presets = getPresetsFromStorage();
+  const preset = presets.find(p => p.name === presetName);
+
+  if (!preset) {
+    alert(`Error: Preset "${presetName}" not found.`);
+    return;
+  }
+
+  const { stateSnapshot } = preset;
+
+  // Restaurar el estado desde el snapshot
+  playerState.playerLevel = stateSnapshot.playerLevel;
+  playerState.skillLevelsAssigned = JSON.parse(JSON.stringify(stateSnapshot.skillLevelsAssigned));
+  playerState.equippedItems = JSON.parse(JSON.stringify(stateSnapshot.equippedItems));
+  playerState.activeBuffs = JSON.parse(JSON.stringify(stateSnapshot.activeBuffs));
+
+  // Crítico: Recalcular los puntos de habilidad en lugar de simplemente cargarlos.
+  const totalPointsForLevel = playerState.playerLevel * SKILL_POINTS_PER_LEVEL;
+  let spentPoints = 0;
+  for (const skillCode in playerState.skillLevelsAssigned) {
+    const level = playerState.skillLevelsAssigned[skillCode];
+    spentPoints += calculateCumulativeSkillCost(skillCode, level);
+  }
+  playerState.skillPointsSpent = spentPoints;
+  playerState.skillPointsAvailable = totalPointsForLevel - spentPoints;
+  
+  // Restaurar salud y hambre a sus valores máximos según la nueva build
+  const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
+  const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
+  playerState.currentHealth = maxHealth;
+  playerState.currentHunger = maxHunger;
+
+
+  renderAllUI();
+  // Animar el botón de carga para feedback visual
+  const loadButton = ui.presetsListContainer.querySelector(`.load-btn[data-preset-name="${presetName}"]`);
+  if (loadButton) applyButtonTransform(loadButton);
+
+  alert(`Preset "${presetName}" loaded successfully.`);
+}
+
+/**
+ * Elimina un preset guardado.
+ * @param {string} presetName El nombre del preset a eliminar.
+ */
+function handleDeletePreset(presetName) {
+  if (!confirm(`Are you sure you want to delete the preset "${presetName}"? This action cannot be undone.`)) {
+    return;
+  }
+
+  let presets = getPresetsFromStorage();
+  presets = presets.filter(p => p.name !== presetName);
+  savePresetsToStorage(presets);
+
+  renderPresetsList();
+}
+
+/**
+ * Guarda el array de presets en localStorage.
+ * @param {Array} presets El array de presets a guardar.
+ */
+function savePresetsToStorage(presets) {
+  localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
+}
 
 function handleSkillButtonClick(button) {
   const skillCode = button.dataset.skill;
   const action = button.dataset.action;
-  let currentLevel = playerState.assignedSkillLevels[skillCode];
-
-  const maxHealthBefore = getSkillData('health', playerState.assignedSkillLevels.health)?.value || 50;
-  const maxHungerBefore = getSkillData('hunger', playerState.assignedSkillLevels.hunger)?.value || 10;
+  let currentLevel = playerState.skillLevelsAssigned[skillCode];
+  const maxHealthBefore = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
+  const maxHungerBefore = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
   const wasHealthMax = playerState.currentHealth >= maxHealthBefore;
   const wasHungerMax = playerState.currentHunger >= maxHungerBefore;
-
   if (action === 'plus') {
     const nextLevel = Math.min(currentLevel + 1, MAX_SKILL_LEVEL);
     const nextSkillInfo = getSkillData(skillCode, nextLevel);
-    
     if (nextSkillInfo && playerState.skillPointsAvailable >= nextSkillInfo.cost && playerState.playerLevel >= nextSkillInfo.unlockAtLevel) {
-      playerState.assignedSkillLevels[skillCode] = nextLevel;
+      playerState.skillLevelsAssigned[skillCode] = nextLevel;
       playerState.skillPointsAvailable -= nextSkillInfo.cost;
       playerState.skillPointsSpent += nextSkillInfo.cost;
     }
   } else if (action === 'minus') {
     if (currentLevel > MIN_SKILL_LEVEL) {
         const refundedCost = getSkillData(skillCode, currentLevel)?.cost || 0;
-        playerState.assignedSkillLevels[skillCode] = currentLevel - 1;
+        playerState.skillLevelsAssigned[skillCode] = currentLevel - 1;
         playerState.skillPointsAvailable += refundedCost;
         playerState.skillPointsSpent -= refundedCost;
     }
   }
-
   if (action === 'plus') {
     if (skillCode === 'health' && wasHealthMax) {
-        const maxHealthAfter = getSkillData('health', playerState.assignedSkillLevels.health)?.value || 50;
+        const maxHealthAfter = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
         playerState.currentHealth = maxHealthAfter;
     }
     if (skillCode === 'hunger' && wasHungerMax) {
-        const maxHungerAfter = getSkillData('hunger', playerState.assignedSkillLevels.hunger)?.value || 10;
+        const maxHungerAfter = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
         playerState.currentHunger = maxHungerAfter;
     }
   }
-
   renderAllUI();
 }
 
@@ -94,22 +272,19 @@ function handleLevelButtonClick(event) {
   const button = event.target;
   const action = button.id === 'level-plus-btn' ? 'plus' : 'minus';
   let newLevel = playerState.playerLevel;
-
   if (action === 'plus') {
     newLevel = Math.min(playerState.playerLevel + 1, MAX_PLAYER_LEVEL);
   } else {
     newLevel = Math.max(playerState.playerLevel - 1, MIN_PLAYER_LEVEL);
   }
-
   if (newLevel !== playerState.playerLevel) {
     const oldTotalPoints = playerState.playerLevel * SKILL_POINTS_PER_LEVEL;
     playerState.playerLevel = newLevel;
     const newTotalPoints = newLevel * SKILL_POINTS_PER_LEVEL;
     playerState.skillPointsAvailable += (newTotalPoints - oldTotalPoints);
     if (playerState.skillPointsSpent > newTotalPoints) {
-      console.warn("Player level decreased, resetting skills as spent points exceed new total.");
-      for (const skillCode in playerState.assignedSkillLevels) {
-        playerState.assignedSkillLevels[skillCode] = 0;
+      for (const skillCode in playerState.skillLevelsAssigned) {
+        playerState.skillLevelsAssigned[skillCode] = 0;
       }
       playerState.skillPointsSpent = 0;
       playerState.skillPointsAvailable = newTotalPoints;
@@ -121,20 +296,17 @@ function handleLevelButtonClick(event) {
 function handleInventoryItemClick(event) {
   const itemElement = event.target.closest('.inventory-item');
   if (!itemElement) return;
-
   const itemCode = itemElement.dataset.code;
   const itemData = skillsData.skills[itemCode];
-  
   if (!itemData) {
     console.warn(`Item with code "${itemCode}" not found in skills data.`);
     return;
   }
-
   if (itemData.isConsumable && itemData.flatStats && itemData.flatStats.healthRegen) {
     handleConsumeFood(itemData);
   } else {
-    playerState.selectedItemForConfig = { ...itemData, code: itemCode };
-    showItemInConfigPanel(itemData);
+    playerState.selectedConfigItem = { ...itemData, code: itemCode };
+    showItemConfigPanel(itemData);
   }
 }
 
@@ -143,7 +315,7 @@ function handleConsumeFood(foodData) {
     console.log("Not enough hunger to eat.");
     return;
   }
-  const maxHealth = getSkillData('health', playerState.assignedSkillLevels.health)?.value || 50;
+  const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
   if (playerState.currentHealth >= maxHealth) {
     console.log("Cannot eat, health is already full or overcharged.");
     return;
@@ -169,7 +341,7 @@ function handleResetGame() {
 }
 
 function handleEquipItem() {
-  const itemToConfigure = playerState.selectedItemForConfig;
+  const itemToConfigure = playerState.selectedConfigItem;
   if (!itemToConfigure) return;
   const itemSlot = itemToConfigure.usage;
   if (!itemSlot) return;
@@ -189,8 +361,8 @@ function handleEquipItem() {
   };
   playerState.equippedItems[itemSlot] = equippedItem;
   Object.keys(equippedItem.stats).forEach(statCode => {
-      if(ui.charStats[statCode]) {
-          const statSpan = ui.charStats[statCode].parentNode.querySelector('span:last-child');
+      if(ui.characterStats[statCode]) {
+          const statSpan = ui.characterStats[statCode].parentNode.querySelector('span:last-child');
           statSpan.classList.add('stat-updated');
           setTimeout(() => statSpan.classList.remove('stat-updated'), 700);
       }
@@ -212,38 +384,31 @@ function handleUnequipItem(event) {
 
 function handleBuffButtonClick(event) {
   const button = event.target.closest('.buff-btn');
-  if (!button || button.disabled) return; // No hacer nada si el botón está deshabilitado
-
+  if (!button || button.disabled) return;
   const buffCode = button.dataset.buffCode;
   const buffData = skillsData.skills[buffCode];
   if (!buffData) return;
-
   const buffType = buffData.usage === 'ammo' ? 'ammo' : 'consumable';
   const buffObject = {
       code: buffCode,
       name: formatCodeToName(buffCode),
       stats: buffData.flatStats,
   };
-
-  // CORRECCIÓN: Lógica de sincronización de Munición
   if (buffType === 'ammo') {
-    // Si la munición seleccionada ya está activa, la desactivamos de ambos sitios.
     if (playerState.activeBuffs.ammo?.code === buffCode) {
       playerState.activeBuffs.ammo = null;
       playerState.equippedItems.ammo = null;
     } else {
-      // Si no, la activamos en ambos sitios.
       playerState.activeBuffs.ammo = buffObject;
-      playerState.equippedItems.ammo = buffObject; // Sincronizamos con el slot de equipamiento
+      playerState.equippedItems.ammo = buffObject;
     }
-  } else { // Lógica para otros buffs (consumables)
+  } else {
     if (playerState.activeBuffs[buffType]?.code === buffCode) {
         playerState.activeBuffs[buffType] = null;
     } else {
         playerState.activeBuffs[buffType] = buffObject;
     }
   }
-
   renderAllUI();
 }
 
@@ -259,7 +424,6 @@ function handleDamageSimulation() {
   renderAllUI();
 }
 
-// CORRECCIÓN: Esta función ahora tiene UNA SOLA responsabilidad: abrir el modal.
 function handleFullCombatModalOpening() {
   if (playerState.currentHealth <= 0) {
       console.log("Cannot simulate, character has no health.");
@@ -277,22 +441,15 @@ function formatCodeToName(code) {
 function startFullCombatWithFood() {
   const selectedItemElement = ui.modal.foodOptions.querySelector('.selected');
   if (!selectedItemElement) return;
-
   const itemCode = selectedItemElement.dataset.code;
   const foodItem = skillsData.skills[itemCode];
-
   const fullResult = simulateFullCombatWithFood({ ...foodItem, name: formatCodeToName(itemCode) });
-  
-  // CORRECCIÓN: Actualizar el estado del jugador con el resultado final.
   playerState.currentHealth = fullResult.finalHealth;
   playerState.currentHunger = fullResult.finalHunger;
-
   const summary = `Survived ${fullResult.ticksSurvived} hits using ${formatCodeToName(itemCode)}, dealing ${fullResult.totalDamageDealt} total damage.`;
   playerState.lastSimulationSummary = summary;
   renderSimulationLog(fullResult, summary);
   hideFoodSelectionModal();
-  
-  // renderAllUI ya actualiza las barras con los nuevos valores del estado.
   renderAllUI(); 
 }
 
@@ -303,50 +460,40 @@ function handleExportBuild() {
     alert('Error: Export library not found.');
     return;
   }
-
-  // Poblar la tarjeta con los datos actuales
   populateExportCard(playerState.lastSimulationSummary);
-
   exportButton.textContent = 'Generating...';
   exportButton.disabled = true;
-
   const cardElement = document.getElementById('build-export-card');
-
-  html2canvas(cardElement, { 
-    backgroundColor: '#0d1117', // Fondo para evitar transparencias
-    useCORS: true // Para cargar imágenes externas si las hubiera
+  
+  html2canvas(cardElement, {
+    backgroundColor: '#0d1117',
+    useCORS: true,
+    scale: 2 // === CAMBIO REALIZADO: Aumentar la escala para mejor calidad de imagen
   }).then(canvas => {
-    // Crear un enlace temporal para la descarga
     const link = document.createElement('a');
     link.download = `player-build-lvl-${playerState.playerLevel}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
-
-    // Limpiar
-    exportButton.textContent = '📤 Export Build';
+    // === CAMBIO REALIZADO: Corregido el texto del botón ===
+    exportButton.textContent = '📤 Export Build'; 
     exportButton.disabled = false;
   }).catch(err => {
     console.error('Failed to export build:', err);
     alert('An error occurred while generating the image.');
+    // === CAMBIO REALIZADO: Corregido el texto del botón también en caso de error ===
     exportButton.textContent = '📤 Export Build';
     exportButton.disabled = false;
   });
 }
 
-// NUEVA FUNCIÓN PARA POBLAR LA TARJETA
 function populateExportCard(summary) {
-  // --- INFO GENERAL ---
   document.getElementById('export-level-badge').textContent = `LVL ${playerState.playerLevel}`;
   document.getElementById('export-simulation-summary').textContent = summary;
-
-  // --- 1. POBLAR SKILLS ---
   const skillsList = document.getElementById('export-skills-list');
   skillsList.innerHTML = '';
-  const skillIcons = { attack: '🗡️', precision: '🎯', criticalChance: '💥', criticalDamages: '🔥', armor: '🛡️', dodge: '🌀', health: '❤️', hunger: '🍗' };
-  
-  // Iterar sobre los iconos para mantener el orden y filtrar `lootChance`
+  const skillIcons = { attack: ' 5e1  e0f', precision: ' 3af', criticalChance: ' 4a5', criticalDamages: ' 525', armor: ' 6e1  e0f', dodge: ' 300', health: ' 764  e0f', hunger: ' 357' };
   Object.keys(skillIcons).forEach(code => {
-      const level = playerState.assignedSkillLevels[code];
+      const level = playerState.skillLevelsAssigned[code];
       const li = document.createElement('li');
       li.className = 'export-skills-list-item';
       li.innerHTML = `
@@ -356,30 +503,19 @@ function populateExportCard(summary) {
       `;
       skillsList.appendChild(li);
   });
-
-  // --- 2. POBLAR STATS CON DESGLOSE ---
   const statsContainer = document.getElementById('export-stats-list');
   statsContainer.innerHTML = '';
   const statsToDisplay = ['attack', 'precision', 'criticalChance', 'criticalDamages', 'armor', 'dodge'];
-
   statsToDisplay.forEach(code => {
       const details = calculateStatDetails(code);
-      
       const statItemDiv = document.createElement('div');
       statItemDiv.className = 'export-stat-item';
-
       let breakdownHtml = '<ul class="export-stat-breakdown">';
-      
-      // Base de la Skill
       breakdownHtml += `<li><span class="source">Base Skill:</span> <span class="value">${formatSkillValue(code, details.skillValue)}</span></li>`;
-
-      // Equipo
       if (details.equipmentValue > 0) {
           const itemNames = details.equipmentItems.map(item => item.name).join(', ');
           breakdownHtml += `<li><span class="source">Equipment (${itemNames}):</span> <span class="value">+${formatSkillValue(code, details.equipmentValue)}</span></li>`;
       }
-
-      // Buffs específicos de Ataque
       if (code === 'attack') {
           if (details.ammoPercent > 0) {
               breakdownHtml += `<li><span class="source">Ammo Buff:</span> <span class="value">+${details.ammoPercent}%</span></li>`;
@@ -388,9 +524,7 @@ function populateExportCard(summary) {
               breakdownHtml += `<li><span class="source">Consumable Buff:</span> <span class="value">+${details.buffPercent}%</span></li>`;
           }
       }
-      
       breakdownHtml += '</ul>';
-
       statItemDiv.innerHTML = `
           <div class="export-stat-header">
               <span class="name">${formatCodeToName(code)}</span>
@@ -400,8 +534,6 @@ function populateExportCard(summary) {
       `;
       statsContainer.appendChild(statItemDiv);
   });
-
-  // --- 3. POBLAR EQUIPO (sin cambios en esta sección) ---
   const equipmentGrid = document.getElementById('export-equipment-grid');
   equipmentGrid.innerHTML = '';
   Object.entries(playerState.equippedItems).forEach(([slot, item]) => {
@@ -419,6 +551,15 @@ function populateExportCard(summary) {
   });
 }
 
+function handleFullRestore() {
+  const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
+  const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
+  playerState.currentHealth = maxHealth;
+  playerState.currentHunger = maxHunger;
+  applyButtonTransform(ui.fullRestoreBtn);
+  renderAllUI();
+}
+
 async function initialize() {
   const data = await fetchJsonData('public/data/skills.json');
   if (!data) {
@@ -426,16 +567,12 @@ async function initialize() {
     return;
   }
   setSkillsData(data);
-  
-  const maxHealth = getSkillData('health', playerState.assignedSkillLevels.health)?.value || 50;
-  const maxHunger = getSkillData('hunger', playerState.assignedSkillLevels.hunger)?.value || 10;
+  const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
+  const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
   playerState.currentHealth = maxHealth;
   playerState.currentHunger = maxHunger;
-
   cacheDOMElements();
   playerState.skillPointsAvailable = (playerState.playerLevel * SKILL_POINTS_PER_LEVEL) - playerState.skillPointsSpent;
-
-  // --- Event Listeners ---
   document.querySelector('.skills-section').addEventListener('click', (event) => {
     const button = event.target.closest('.skill-btn');
     if (button && !button.disabled) {
@@ -443,7 +580,7 @@ async function initialize() {
       handleSkillButtonClick(button);
     }
   });
-
+  ui.fullRestoreBtn.addEventListener('click', handleFullRestore);
   ui.equipmentSlotsContainer.addEventListener('contextmenu', handleUnequipItem);
   ui.levelMinusBtn.addEventListener('click', (event) => { applyButtonTransform(event.target); handleLevelButtonClick(event); });
   ui.levelPlusBtn.addEventListener('click', (event) => { applyButtonTransform(event.target); handleLevelButtonClick(event); });
@@ -454,13 +591,10 @@ async function initialize() {
     statItem.addEventListener('mouseenter', handleStatMouseEnter);
     statItem.addEventListener('mouseleave', handleStatMouseLeave);
   });
-  ui.equipItemBtn.addEventListener('click', handleEquipItem);
+  ui.equipItemButton.addEventListener('click', handleEquipItem);
   ui.buffSelection.addEventListener('click', handleBuffButtonClick);
   ui.simulateBtn.addEventListener('click', handleDamageSimulation);
-
-  // CORRECCIÓN: Se asocia el botón a la función correcta y se elimina el listener duplicado.
   ui.simulateFullBtn.addEventListener('click', handleFullCombatModalOpening);
-
   const skillsSection = document.querySelector('.skills-section');
   skillsSection.addEventListener('mouseover', (event) => {
       if (event.target.classList.contains('progress-block')) handleProgressBlockMouseEnter(event);
@@ -468,8 +602,6 @@ async function initialize() {
   skillsSection.addEventListener('mouseout', (event) => {
       if (event.target.classList.contains('progress-block')) handleProgressBlockMouseLeave(event);
   });
-
-  // MODAL LISTENERS
   ui.modal.cancelBtn.addEventListener('click', hideFoodSelectionModal);
   ui.modal.overlay.addEventListener('click', (event) => {
       if (event.target === ui.modal.overlay) hideFoodSelectionModal();
@@ -483,7 +615,19 @@ async function initialize() {
       ui.modal.startBtn.disabled = false;
   });
   ui.modal.startBtn.addEventListener('click', startFullCombatWithFood);
-  
+  ui.savePresetBtn.addEventListener('click', handleSavePreset);
+  ui.presetsListContainer.addEventListener('click', (event) => {
+    const button = event.target.closest('.preset-btn');
+    if (!button) return;
+    
+    const presetName = button.dataset.presetName;
+    if (button.classList.contains('load-btn')) {
+      handleLoadPreset(presetName);
+    } else if (button.classList.contains('delete-btn')) {
+      handleDeletePreset(presetName);
+    }
+  });
+  renderPresetsList();
   renderAllUI();
 }
 
