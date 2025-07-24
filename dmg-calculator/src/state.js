@@ -24,6 +24,7 @@ const INITIAL_PLAYER_STATE = {
     ammo: null, consumable: null
   },
   selectedItemForConfig: null,
+  lastSimulationSummary: 'No simulation has been run yet.',
 };
 
 export let playerState = JSON.parse(JSON.stringify(INITIAL_PLAYER_STATE));

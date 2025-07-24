@@ -89,6 +89,8 @@ export function calculateStatDetails(skillCode) {
 }
 
 export function simulateFullCombat() {
+    // Esta función ahora es un wrapper simple sin comida.
+    // La nueva lógica estará en simulateFullCombatWithFood
     let totalDamageDealt = 0;
     let ticksSurvived = 0;
     let fullLog = [];
@@ -116,6 +118,88 @@ export function simulateFullCombat() {
         ticksSurvived,
         log: fullLog,
         finalHealth: Math.max(0, tempCurrentHealth)
+    };
+}
+
+
+// NUEVA FUNCIÓN PARA LA SIMULACIÓN CON COMIDA
+export function simulateFullCombatWithFood(foodItem) {
+    let totalDamageDealt = 0;
+    let ticksSurvived = 0;
+    let fullLog = [];
+    
+    let tempCurrentHealth = playerState.currentHealth;
+    let tempCurrentHunger = playerState.currentHunger;
+
+    const healthPerFood = foodItem.flatStats.healthRegen || 0;
+    const maxHealthFromSkills = getSkillData('health', playerState.assignedSkillLevels.health)?.value || 50;
+    const INCOMING_DAMAGE_PER_TICK = 10; // Daño base que se recibe por golpe
+
+    const MAX_TICKS = 2000;
+
+    fullLog.push(`--- Simulation started with ${foodItem.name} (+${healthPerFood} HP per hunger point) ---`);
+
+    while (ticksSurvived < MAX_TICKS) {
+        // --- COMIENZO DEL NUEVO FLUJO LÓGICO ---
+
+        // 1. VERIFICACIÓN DE PÁNICO Y CONSUMO DE COMIDA (ANTES DE RECIBIR EL GOLPE)
+        // Si la vida es críticamente baja Y el personaje puede comer, entra en un bucle de consumo.
+        if (tempCurrentHealth <= INCOMING_DAMAGE_PER_TICK && tempCurrentHunger > 0 && healthPerFood > 0) {
+            fullLog.push(`<strong>CRITICAL HEALTH!</strong> HP at ${tempCurrentHealth.toFixed(1)}. Attempting to eat.`);
+            
+            // Bucle de consumo: comer hasta estar seguro o no poder más.
+            while (tempCurrentHunger > 0 && tempCurrentHealth <= INCOMING_DAMAGE_PER_TICK) {
+                // Guarda de seguridad para la regla de sobrecuración: no comer si la vida ya es >= maxHealth
+                if (tempCurrentHealth >= maxHealthFromSkills) {
+                    fullLog.push(`Stopped eating: health is full or overcharged (${tempCurrentHealth.toFixed(1)} / ${maxHealthFromSkills}).`);
+                    break;
+                }
+
+                tempCurrentHunger--;
+                const healthBeforeHeal = tempCurrentHealth;
+                tempCurrentHealth += healthPerFood;
+                fullLog.push(`<strong>ATE ${foodItem.name.toUpperCase()}!</strong> Healed for ${healthPerFood}. HP: ${healthBeforeHeal.toFixed(1)} -> ${tempCurrentHealth.toFixed(1)}. Hunger left: ${tempCurrentHunger}.`);
+            }
+        }
+        
+        // 2. VERIFICACIÓN DE FIN DE COMBATE
+        // Si después de intentar comer, la vida sigue siendo insuficiente para sobrevivir el próximo golpe, el combate termina.
+        if (tempCurrentHealth <= 0) {
+            fullLog.push(`--- COMBAT ENDED: Player defeated. Not enough health to continue. ---`);
+            break;
+        }
+
+        // 3. EJECUCIÓN DEL TICK DE COMBATE (Hacer y recibir daño)
+        const tickResult = simulateCombatTick(); // Esta función ya calcula el daño recibido y hecho.
+        
+        // Aplicar el daño recibido en este tick
+        const healthLostThisTick = tickResult.healthLost;
+        tempCurrentHealth -= healthLostThisTick;
+        
+        // Sumar el daño infligido en este tick
+        totalDamageDealt += tickResult.finalDamageDealt;
+        ticksSurvived++;
+
+        // 4. REGISTRO DEL LOG
+        const healthAfterDamage = tempCurrentHealth;
+        let logEntry = `--- Hit ${ticksSurvived} | HP left: ${Math.max(0, healthAfterDamage).toFixed(1)} | Hunger: ${tempCurrentHunger} ---`;
+        fullLog.push(logEntry);
+        fullLog.push(...tickResult.log); // Añadir los detalles del golpe (miss, critical, etc.)
+
+        // Si la vida llega a 0 después de este golpe, el siguiente bucle lo detectará y terminará el combate.
+    }
+
+    if (ticksSurvived >= MAX_TICKS) {
+        fullLog.push("--- SIMULATION STOPPED: Maximum number of hits reached. ---");
+    }
+
+    return {
+        totalDamageDealt: parseFloat(totalDamageDealt.toFixed(1)),
+        ticksSurvived,
+        log: fullLog,
+        finalHealth: Math.max(0, tempCurrentHealth),
+        // CORRECCIÓN: Añadir el hambre restante al objeto de retorno.
+        finalHunger: tempCurrentHunger 
     };
 }
 

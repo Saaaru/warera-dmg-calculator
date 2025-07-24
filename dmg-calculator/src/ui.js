@@ -11,9 +11,9 @@ function setButtonEnabled(button, enable) {
 }
 
 export function formatSkillValue(skillCode, value) {
-  const percentageSkills = ['precision', 'criticalChance', 'criticalDamages', 'armor', 'dodge', 'lootChance'];
-  return percentageSkills.includes(skillCode) ? `${value}%` : value.toString();
-}
+    const percentageSkills = ['precision', 'criticalChance', 'criticalDamages', 'armor', 'dodge', 'lootChance'];
+    return percentageSkills.includes(skillCode) ? `${value}%` : value.toString();
+  }
 
 export function applyButtonTransform(button) {
     if (!button.classList.contains('btn-disabled')) {
@@ -85,19 +85,44 @@ function renderEquippedItems() {
         const slotElement = ui.equipmentSlots[slot];
         const equippedItem = playerState.equippedItems[slot];
         if (equippedItem) {
-            const itemInGrid = document.querySelector(`.inventory-item[data-code="${equippedItem.code}"] img`);
-            slotElement.innerHTML = itemInGrid ? `<img src="${itemInGrid.src}" alt="${equippedItem.name}">` : '✔️';
+            // CORRECCIÓN: Buscar la imagen en la ruta de items por defecto.
+            // Si el código termina en un número distinto de 1 para los tipos conocidos, usar siempre el 1.
+            let imgCode = equippedItem.code;
+            if (imgCode.startsWith('pants')) imgCode = 'pants1';
+            else if (imgCode.startsWith('helmet')) imgCode = 'helmet1';
+            else if (imgCode.startsWith('gloves')) imgCode = 'gloves1';
+            else if (imgCode.startsWith('chest')) imgCode = 'chest1';
+            else if (imgCode.startsWith('boots')) imgCode = 'boots1';
+            const imgSrc = `public/images/items/${imgCode}.png`;
+            slotElement.innerHTML = `<img src="${imgSrc}" alt="${equippedItem.name}">`;
         } else {
+// ... existing code ...
             slotElement.innerHTML = '+';
         }
     }
 }
 
 function renderActiveBuffs() {
+    // CORRECCIÓN: Añadir lógica para deshabilitar botones de munición.
+    const weaponEquipped = !!playerState.equippedItems.weapon;
+
     ui.buffButtons.forEach(button => {
         const buffCode = button.dataset.buffCode;
         const buffData = skillsData.skills[buffCode];
         if (!buffData) return;
+
+        // Si es un buff de munición, deshabilitarlo si no hay arma
+        if (buffData.usage === 'ammo') {
+            setButtonEnabled(button, weaponEquipped);
+            // Añadir un título para explicar por qué está deshabilitado
+            if (!weaponEquipped) {
+                button.title = 'You must equip a weapon to use ammo.';
+            } else {
+                // Restaurar el título original
+                button.title = buffData.title || `Buff: ${formatCodeToName(buffCode)}`;
+            }
+        }
+
         const buffType = buffData.usage === 'ammo' ? 'ammo' : 'consumable';
         const isActive = playerState.activeBuffs[buffType]?.code === buffCode;
         button.classList.toggle('active-buff', isActive);
@@ -202,7 +227,8 @@ export function hideItemConfigPanel() {
 export function renderSimulationLog(result, summaryOverride = null) {
     if (!ui.simulationLog) return;
     
-    if (ui.simulationLog.children.length > 50) {
+    // Limitar el número de entradas para no sobrecargar el DOM
+    while (ui.simulationLog.children.length > 50) {
         ui.simulationLog.lastChild.remove();
     }
 
@@ -232,7 +258,54 @@ export function renderSimulationLog(result, summaryOverride = null) {
     logEntry.appendChild(summary);
     logEntry.appendChild(details);
 
+    // El cambio clave: usar prepend() en lugar de appendChild() o similar.
     ui.simulationLog.prepend(logEntry);
+}
+
+// NUEVAS FUNCIONES PARA EL MODAL
+export function showFoodSelectionModal() {
+    if (!skillsData || !ui.modal.overlay) return;
+
+    const foodContainer = ui.modal.foodOptions;
+    foodContainer.innerHTML = ''; // Limpiar opciones anteriores
+    let hasFood = false;
+
+    // Poblar el modal con items de comida del inventario (o de los datos)
+    Object.entries(skillsData.skills).forEach(([code, itemData]) => {
+        if (itemData.isConsumable && itemData.flatStats.healthRegen) {
+            hasFood = true;
+            const itemElement = document.createElement('div');
+            itemElement.className = 'modal-food-item';
+            itemElement.dataset.code = code;
+
+            const img = document.querySelector(`.inventory-item[data-code="${code}"] img`);
+            const imgSrc = img ? img.src : ''; // Fallback si no hay imagen
+            
+            itemElement.innerHTML = `
+                <img src="${imgSrc}" alt="${itemData.name}">
+                <span>${formatCodeToName(code)}</span>
+            `;
+            foodContainer.appendChild(itemElement);
+        }
+    });
+
+    if (!hasFood) {
+      foodContainer.innerHTML = '<p>No consumable food items available.</p>';
+    }
+
+    ui.modal.overlay.classList.remove('hidden');
+    ui.modal.startBtn.disabled = true;
+}
+
+export function hideFoodSelectionModal() {
+    if (ui.modal.overlay) {
+        ui.modal.overlay.classList.add('hidden');
+        // Deseleccionar cualquier item
+        const selected = ui.modal.foodOptions.querySelector('.selected');
+        if (selected) {
+            selected.classList.remove('selected');
+        }
+    }
 }
 
 export function cacheDOMElements() {
@@ -268,8 +341,15 @@ export function cacheDOMElements() {
     ui.equipItemBtn = document.getElementById('equip-item-btn');
     ui.inventoryGrid = document.querySelector('.inventory-grid');
     ui.simulateBtn = document.getElementById('simulate-btn');
+    ui.exportBtn = document.getElementById('export-btn');
     ui.simulationLog = document.getElementById('simulation-log');
-}
+    ui.modal = {
+        overlay: document.getElementById('food-selection-modal'),
+        foodOptions: document.getElementById('modal-food-options'),
+        startBtn: document.getElementById('start-simulation-with-food-btn'),
+        cancelBtn: document.getElementById('cancel-simulation-btn')
+      };
+  }
 
 function getProgressBlockInfo(target) {
     const block = target.closest('.progress-block');

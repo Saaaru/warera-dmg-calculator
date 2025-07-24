@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Fight Skills Layout</title>
   <link rel="stylesheet" href="public/styles/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 
 <body>
@@ -42,6 +43,7 @@
           </div>
           <div class="character-actions">
             <button class="action-btn reset-btn" id="reset-btn">🔄 Reset</button>
+            <button class="action-btn" id="export-btn">📤 Export Build</button>
           </div>
         </div>
         <div class="player-status-section">
@@ -86,43 +88,95 @@
     <div class="inventory-section">
       <div class="inventory-title">Inventory</div>
       <div class="inventory-grid">
+        <!-- consumibles -->
         <div class="inventory-item tier-green" data-code="bread"><img src="public/images/items/bread.png" alt="Bread" /></div>
         <div class="inventory-item tier-blue" data-code="steak"><img src="public/images/items/steak.png" alt="Steak" /></div>
         <div class="inventory-item tier-purple" data-code="cookedFish"><img src="public/images/items/cookedFish.png" alt="Cooked Fish" /></div>
+        <!-- equipamiento -->
+         <!-- tier-gray -->
         <div class="inventory-item tier-gray" data-code="pants1"><img src="public/images/items/pants1.png" alt="Gray Pants" /></div>
         <div class="inventory-item tier-gray" data-code="gloves1"><img src="public/images/items/gloves1.png" alt="Gray Gloves" /></div>
         <div class="inventory-item tier-gray" data-code="boots1"><img src="public/images/items/boots1.png" alt="Gray Boots" /></div>
-        <div class="inventory-item tier-gray" data-code="chest1"><img src="public/images/items/armor1.png" alt="Gray Armor" /></div>
+        <div class="inventory-item tier-gray" data-code="chest1"><img src="public/images/items/chest1.png" alt="Gray Chest" /></div>
         <div class="inventory-item tier-gray" data-code="helmet1"><img src="public/images/items/helmet1.png" alt="Gray Helmet" /></div>
         <div class="inventory-item tier-gray" data-code="knife"><img src="public/images/items/knife.png" alt="Gray Knife" /></div>
+        <!-- tier-green -->
         <div class="inventory-item tier-green" data-code="pants2"><img src="public/images/items/pants1.png" alt="Green Pants" /></div>
         <div class="inventory-item tier-green" data-code="gloves2"><img src="public/images/items/gloves1.png" alt="Green Gloves" /></div>
         <div class="inventory-item tier-green" data-code="boots2"><img src="public/images/items/boots1.png" alt="Green Boots" /></div>
-        <div class="inventory-item tier-green" data-code="chest2"><img src="public/images/items/armor1.png" alt="Green Armor" /></div>
+        <div class="inventory-item tier-green" data-code="chest2"><img src="public/images/items/chest1.png" alt="Green Chest" /></div>
         <div class="inventory-item tier-green" data-code="helmet2"><img src="public/images/items/helmet1.png" alt="Green Helmet" /></div>
         <div class="inventory-item tier-green" data-code="gun"><img src="public/images/items/gun.png" alt="Green Gun" /></div>
+        <!-- tier-blue -->
         <div class="inventory-item tier-blue" data-code="pants3"><img src="public/images/items/pants1.png" alt="Blue Pants" /></div>
         <div class="inventory-item tier-blue" data-code="gloves3"><img src="public/images/items/gloves1.png" alt="Blue Gloves" /></div>
         <div class="inventory-item tier-blue" data-code="boots3"><img src="public/images/items/boots1.png" alt="Blue Boots" /></div>
-        <div class="inventory-item tier-blue" data-code="chest3"><img src="public/images/items/armor1.png" alt="Blue Armor" /></div>
+        <div class="inventory-item tier-blue" data-code="chest3"><img src="public/images/items/chest1.png" alt="Blue Chest" /></div>
         <div class="inventory-item tier-blue" data-code="helmet3"><img src="public/images/items/helmet1.png" alt="Blue Helmet" /></div>
         <div class="inventory-item tier-blue" data-code="rifle"><img src="public/images/items/rifle.png" alt="Blue Rifle" /></div>
+        <!-- tier-purple -->
         <div class="inventory-item tier-purple" data-code="pants4"><img src="public/images/items/pants1.png" alt="Purple Pants" /></div>
         <div class="inventory-item tier-purple" data-code="gloves4"><img src="public/images/items/gloves1.png" alt="Purple Gloves" /></div>
         <div class="inventory-item tier-purple" data-code="boots4"><img src="public/images/items/boots1.png" alt="Purple Boots" /></div>
-        <div class="inventory-item tier-purple" data-code="chest4"><img src="public/images/items/armor1.png" alt="Purple Armor" /></div>
+        <div class="inventory-item tier-purple" data-code="chest4"><img src="public/images/items/chest1.png" alt="Purple Chest" /></div>
         <div class="inventory-item tier-purple" data-code="helmet4"><img src="public/images/items/helmet1.png" alt="Purple Helmet" /></div>
         <div class="inventory-item tier-purple" data-code="sniper"><img src="public/images/items/sniper.png" alt="Purple Sniper" /></div>
+        <!-- tier-orange -->
         <div class="inventory-item tier-orange" data-code="pants5"><img src="public/images/items/pants1.png" alt="Orange Pants" /></div>
         <div class="inventory-item tier-orange" data-code="gloves5"><img src="public/images/items/gloves1.png" alt="Orange Gloves" /></div>
         <div class="inventory-item tier-orange" data-code="boots5"><img src="public/images/items/boots1.png" alt="Orange Boots" /></div>
-        <div class="inventory-item tier-orange" data-code="chest5"><img src="public/images/items/armor1.png" alt="Orange Armor" /></div>
+        <div class="inventory-item tier-orange" data-code="chest5"><img src="public/images/items/chest1.png" alt="Orange Chest" /></div>
         <div class="inventory-item tier-orange" data-code="helmet5"><img src="public/images/items/helmet1.png" alt="Orange Helmet" /></div>
         <div class="inventory-item tier-orange" data-code="tank"><img src="public/images/items/tank.png" alt="Orange Tank" /></div>
       </div>
     </div>
     <div id="stat-tooltip" class="stat-tooltip"></div>
+    <script type="module" src="src/main.js"></script>
+
+    <!-- MODAL PARA SELECCIÓN DE COMIDA -->
+    <div id="food-selection-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <h4>Select Consumable for Full Combat</h4>
+        <p>Choose a food item to simulate how long you can last in combat.</p>
+        <div id="modal-food-options" class="modal-food-grid">
+          <!-- Las opciones de comida se cargarán aquí dinámicamente -->
+        </div>
+        <div class="modal-actions">
+          <button id="start-simulation-with-food-btn" class="action-btn" disabled>Simulate</button>
+          <button id="cancel-simulation-btn" class="action-btn reset-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <!-- PLANTILLA PARA EXPORTAR IMAGEN (OCULTA POR DEFECTO) -->
+<div id="build-export-card">
+  <div class="export-header">
+    <div class="export-player-info">
+      <h3>PLAYER BUILD</h3>
+      <span id="export-level-badge"></span>
+    </div>
   </div>
-  <script type="module" src="src/main.js"></script>
-</body>
-</html>
+  <div class="export-main-content">
+    <div class="export-column export-skills-column">
+      <h4>Skills</h4>
+      <ul id="export-skills-list">
+        <!-- Los skills se llenarán aquí -->
+      </ul>
+    </div>
+    <div class="export-column export-stats-column">
+      <h4>Character Stats</h4>
+      <ul id="export-stats-list">
+        <!-- Las stats se llenarán aquí -->
+      </ul>
+      <h4>Equipment</h4>
+      <div id="export-equipment-grid" class="export-equipment-grid">
+        <!-- El equipo se llenará aquí -->
+      </div>
+    </div>
+  </div>
+  <div class="export-footer">
+    <h4>Simulation Result</h4>
+    <p id="export-simulation-summary">No simulation data.</p>
+  </div>
+</div>
+  </body>
+  </html>
