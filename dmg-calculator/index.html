@@ -41,9 +41,6 @@
             </div>
           </div>
           <div class="character-actions">
-            <button class="action-btn">✖</button>
-            <button class="action-btn">🛒</button>
-            <button class="action-btn hunger-btn">🍗 <span id="char-stat-hunger"></span></button>
             <button class="action-btn reset-btn" id="reset-btn">🔄 Reset</button>
           </div>
         </div>
@@ -77,10 +74,10 @@
           <button id="equip-item-btn" class="action-btn">Equip Item</button>
         </div>
         <div id="simulation-panel" class="simulation-panel">
-          <h4>Damage Simulation</h4>
-          <div id="simulation-log" class="simulation-log"> Simulation results will appear here. </div>
           <button id="simulate-btn" class="action-btn">Simulate Damage</button>
           <button id="simulate-full-btn" class="action-btn">Simulate Full Combat</button>
+          <h4>Damage Simulation</h4>
+          <div id="simulation-log" class="simulation-log"> Simulation results will appear here. </div>
         </div>
       </div>
     </div>
@@ -89,6 +86,9 @@
     <div class="inventory-section">
       <div class="inventory-title">Inventory</div>
       <div class="inventory-grid">
+        <div class="inventory-item tier-green" data-code="bread"><img src="public/images/items/bread.png" alt="Bread" /></div>
+        <div class="inventory-item tier-blue" data-code="steak"><img src="public/images/items/steak.png" alt="Steak" /></div>
+        <div class="inventory-item tier-purple" data-code="cookedFish"><img src="public/images/items/cookedFish.png" alt="Cooked Fish" /></div>
         <div class="inventory-item tier-gray" data-code="pants1"><img src="public/images/items/pants1.png" alt="Gray Pants" /></div>
         <div class="inventory-item tier-gray" data-code="gloves1"><img src="public/images/items/gloves1.png" alt="Gray Gloves" /></div>
         <div class="inventory-item tier-gray" data-code="boots1"><img src="public/images/items/boots1.png" alt="Gray Boots" /></div>
@@ -119,9 +119,6 @@
         <div class="inventory-item tier-orange" data-code="chest5"><img src="public/images/items/armor1.png" alt="Orange Armor" /></div>
         <div class="inventory-item tier-orange" data-code="helmet5"><img src="public/images/items/helmet1.png" alt="Orange Helmet" /></div>
         <div class="inventory-item tier-orange" data-code="tank"><img src="public/images/items/tank.png" alt="Orange Tank" /></div>
-        <div class="inventory-item tier-gray" data-code="bread"><img src="public/images/items/bread.png" alt="Bread" /></div>
-        <div class="inventory-item tier-green" data-code="cookedFish"><img src="public/images/items/cooked_fish.png" alt="Cooked Fish" /></div>
-        <div class="inventory-item tier-blue" data-code="steak"><img src="public/images/items/steak.png" alt="Steak" /></div>
       </div>
     </div>
     <div id="stat-tooltip" class="stat-tooltip"></div>
