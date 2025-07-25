@@ -10,6 +10,10 @@
 </head>
 
 <body>
+  <div id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>Loading Game Data...</p>
+  </div>
   <header class="main-header">
     <h1>War Era Damage Calculator!</h1>
     <div class="how-to-use">
@@ -43,7 +47,7 @@
     </div>
   </header>
 
-  <div class="container">
+  <div class="container hidden">
     <!-- COLUMNA 1: SKILLS -->
     <div class="skills-section">
       <div class="skills-title">Fight skills</div>
@@ -200,45 +204,46 @@
       </div>
     </div>
     <!-- PLANTILLA PARA EXPORTAR IMAGEN (OCULTA POR DEFECTO) -->
-<div id="build-export-card">
-  <div class="export-header">
-    <div class="export-player-info">
-      <h3>PLAYER BUILD</h3>
-      <span id="export-level-badge"></span>
-    </div>
-  </div>
-  <div class="export-main-content">
-    <div class="export-column export-skills-column">
-      <h4>Skills</h4>
-      <ul id="export-skills-list">
-        <!-- Los skills se llenarán aquí -->
-      </ul>
-    </div>
-    <div class="export-column export-stats-column">
-      <h4>Character Stats</h4>
-      <ul id="export-stats-list">
-        <!-- Las stats se llenarán aquí -->
-      </ul>
-      <h4>Equipment</h4>
-      <div id="export-equipment-grid" class="export-equipment-grid">
-        <!-- El equipo se llenará aquí -->
+    <div id="build-export-card">
+      <div class="export-header">
+        <div class="export-player-info">
+          <h3>PLAYER BUILD</h3>
+          <span id="export-level-badge"></span>
+        </div>
+      </div>
+      <div class="export-main-content">
+        <div class="export-column export-skills-column">
+          <h4>Skills</h4>
+          <ul id="export-skills-list">
+            <!-- Los skills se llenarán aquí -->
+          </ul>
+        </div>
+        <div class="export-column export-stats-column">
+          <h4>Character Stats</h4>
+          <ul id="export-stats-list">
+            <!-- Las stats se llenarán aquí -->
+          </ul>
+          <h4>Equipment</h4>
+          <div id="export-equipment-grid" class="export-equipment-grid">
+            <!-- El equipo se llenará aquí -->
+          </div>
+        </div>
+      </div>
+      <div class="export-footer">
+        <h4>Simulation Result</h4>
+        <p id="export-simulation-summary">No simulation data.</p>
       </div>
     </div>
-  </div>
-  <div class="export-footer">
-    <h4>Simulation Result</h4>
-    <p id="export-simulation-summary">No simulation data.</p>
-  </div>
-</div>
-<div id="generic-modal" class="modal-overlay hidden">
-  <div class="modal-content">
-    <h4 id="generic-modal-title">Confirmation</h4>
-    <p id="generic-modal-text">Are you sure?</p>
-    <div id="generic-modal-actions" class="modal-actions">
-      <button id="generic-modal-confirm-btn" class="action-btn">Confirm</button>
-      <button id="generic-modal-cancel-btn" class="action-btn reset-btn">Cancel</button>
+    <div id="generic-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <h4 id="generic-modal-title">Confirmation</h4>
+        <p id="generic-modal-text">Are you sure?</p>
+        <div id="generic-modal-actions" class="modal-actions">
+          <button id="generic-modal-confirm-btn" class="action-btn">Confirm</button>
+          <button id="generic-modal-cancel-btn" class="action-btn reset-btn">Cancel</button>
+        </div>
+      </div>
     </div>
-  </div>
 </div>
-  </body>
-  </html>
+</body>
+</html>

@@ -691,76 +691,101 @@ async function handleLoadFromAPI() {
 }
 
 async function initialize() {
-  const data = await fetchJsonData('public/data/skills.json');
-  if (!data) {
-    console.error("Failed to load skill data. Application cannot start.");
-    return;
-  }
-  setSkillsData(data);
-  const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
-  const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
-  playerState.currentHealth = maxHealth;
-  playerState.currentHunger = maxHunger;
-  cacheDOMElements();
-  playerState.skillPointsAvailable = (playerState.playerLevel * SKILL_POINTS_PER_LEVEL) - playerState.skillPointsSpent;
-  document.querySelector('.skills-section').addEventListener('click', (event) => {
-    const button = event.target.closest('.skill-btn');
-    if (button && !button.disabled) {
-      applyButtonTransform(button);
-      handleSkillButtonClick(button);
-    }
-  });
-  ui.fullRestoreBtn.addEventListener('click', handleFullRestore);
-  ui.equipmentSlotsContainer.addEventListener('contextmenu', handleUnequipItem);
-  ui.levelMinusBtn.addEventListener('click', (event) => { applyButtonTransform(event.target); handleLevelButtonClick(event); });
-  ui.levelPlusBtn.addEventListener('click', (event) => { applyButtonTransform(event.target); handleLevelButtonClick(event); });
-  ui.resetBtn.addEventListener('click', handleResetGame);
-  ui.exportBtn.addEventListener('click', handleExportBuild);
-  ui.inventoryGrid.addEventListener('click', handleInventoryItemClick);
-  document.querySelectorAll('.character-stats .stat-item').forEach(statItem => {
-    statItem.addEventListener('mouseenter', handleStatMouseEnter);
-    statItem.addEventListener('mouseleave', handleStatMouseLeave);
-  });
-  ui.equipItemButton.addEventListener('click', handleEquipItem);
-  ui.buffSelection.addEventListener('click', handleBuffButtonClick);
-  ui.simulateBtn.addEventListener('click', handleDamageSimulation);
-  ui.simulateFullBtn.addEventListener('click', handleFullCombatModalOpening);
-  const skillsSection = document.querySelector('.skills-section');
-  skillsSection.addEventListener('mouseover', (event) => {
-      if (event.target.classList.contains('progress-block')) handleProgressBlockMouseEnter(event);
-  });
-  skillsSection.addEventListener('mouseout', (event) => {
-      if (event.target.classList.contains('progress-block')) handleProgressBlockMouseLeave(event);
-  });
-  ui.modal.cancelBtn.addEventListener('click', hideFoodSelectionModal);
-  ui.modal.overlay.addEventListener('click', (event) => {
-      if (event.target === ui.modal.overlay) hideFoodSelectionModal();
-  });
-  ui.modal.foodOptions.addEventListener('click', (event) => {
-      const itemElement = event.target.closest('.modal-food-item');
-      if (!itemElement) return;
-      const currentSelected = ui.modal.foodOptions.querySelector('.selected');
-      if (currentSelected) currentSelected.classList.remove('selected');
-      itemElement.classList.add('selected');
-      ui.modal.startBtn.disabled = false;
-  });
-  ui.modal.startBtn.addEventListener('click', startFullCombatWithFood);
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const mainContainer = document.querySelector('.container');
 
-  ui.savePresetBtn.addEventListener('click', handleSavePreset);
-  ui.presetsListContainer.addEventListener('click', (event) => {
-    const button = event.target.closest('.preset-btn');
-    if (!button) return;
-    const presetName = button.dataset.presetName;
-    if (button.classList.contains('load-btn')) {
-      handleLoadPreset(presetName);
-    } else if (button.classList.contains('delete-btn')) {
-      handleDeletePreset(presetName);
+  try {
+    // 1. Cargar los datos. La ejecución se detiene aquí hasta que se resuelva.
+    const data = await fetchJsonData('public/data/skills.json');
+    if (!data) {
+      // Si el fetch fue exitoso pero el archivo está vacío o malformado, lanzamos un error.
+      throw new Error("Skill data file is empty or invalid.");
     }
-  });
-  renderPresetsList();
-  
-  ui.loadFromApiBtn.addEventListener('click', handleLoadFromAPI);
-  renderAllUI();
+
+    // 2. Una vez que los datos están listos, configuramos el estado y la UI.
+    setSkillsData(data);
+    const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
+    const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
+    playerState.currentHealth = maxHealth;
+    playerState.currentHunger = maxHunger;
+
+    cacheDOMElements();
+    playerState.skillPointsAvailable = (playerState.playerLevel * SKILL_POINTS_PER_LEVEL) - playerState.skillPointsSpent;
+
+    // Registrar todos los event listeners
+    document.querySelector('.skills-section').addEventListener('click', (event) => {
+      const button = event.target.closest('.skill-btn');
+      if (button && !button.disabled) {
+        applyButtonTransform(button);
+        handleSkillButtonClick(button);
+      }
+    });
+    ui.fullRestoreBtn.addEventListener('click', handleFullRestore);
+    ui.equipmentSlotsContainer.addEventListener('contextmenu', handleUnequipItem);
+    ui.levelMinusBtn.addEventListener('click', (event) => { applyButtonTransform(event.target); handleLevelButtonClick(event); });
+    ui.levelPlusBtn.addEventListener('click', (event) => { applyButtonTransform(event.target); handleLevelButtonClick(event); });
+    ui.resetBtn.addEventListener('click', handleResetGame);
+    ui.exportBtn.addEventListener('click', handleExportBuild);
+    ui.inventoryGrid.addEventListener('click', handleInventoryItemClick);
+    document.querySelectorAll('.character-stats .stat-item').forEach(statItem => {
+      statItem.addEventListener('mouseenter', handleStatMouseEnter);
+      statItem.addEventListener('mouseleave', handleStatMouseLeave);
+    });
+    ui.equipItemButton.addEventListener('click', handleEquipItem);
+    ui.buffSelection.addEventListener('click', handleBuffButtonClick);
+    ui.simulateBtn.addEventListener('click', handleDamageSimulation);
+    ui.simulateFullBtn.addEventListener('click', handleFullCombatModalOpening);
+    const skillsSection = document.querySelector('.skills-section');
+    skillsSection.addEventListener('mouseover', (event) => {
+        if (event.target.classList.contains('progress-block')) handleProgressBlockMouseEnter(event);
+    });
+    skillsSection.addEventListener('mouseout', (event) => {
+        if (event.target.classList.contains('progress-block')) handleProgressBlockMouseLeave(event);
+    });
+    ui.modal.cancelBtn.addEventListener('click', hideFoodSelectionModal);
+    ui.modal.overlay.addEventListener('click', (event) => {
+        if (event.target === ui.modal.overlay) hideFoodSelectionModal();
+    });
+    ui.modal.foodOptions.addEventListener('click', (event) => {
+        const itemElement = event.target.closest('.modal-food-item');
+        if (!itemElement) return;
+        const currentSelected = ui.modal.foodOptions.querySelector('.selected');
+        if (currentSelected) currentSelected.classList.remove('selected');
+        itemElement.classList.add('selected');
+        ui.modal.startBtn.disabled = false;
+    });
+    ui.modal.startBtn.addEventListener('click', startFullCombatWithFood);
+    ui.savePresetBtn.addEventListener('click', handleSavePreset);
+    ui.presetsListContainer.addEventListener('click', (event) => {
+      const button = event.target.closest('.preset-btn');
+      if (!button) return;
+      const presetName = button.dataset.presetName;
+      if (button.classList.contains('load-btn')) {
+        handleLoadPreset(presetName);
+      } else if (button.classList.contains('delete-btn')) {
+        handleDeletePreset(presetName);
+      }
+    });
+    renderPresetsList();
+    ui.loadFromApiBtn.addEventListener('click', handleLoadFromAPI);
+
+    // 3. Renderizar la UI por primera vez con los datos ya cargados.
+    renderAllUI();
+
+    // 4. ¡Todo está listo! Ocultamos la carga y mostramos la aplicación.
+    loadingOverlay.classList.add('hidden');
+    mainContainer.classList.remove('hidden');
+
+  } catch (error) {
+    // Si algo falla (el fetch o el procesamiento), mostramos un error al usuario.
+    console.error("Fatal error during initialization:", error);
+    const loadingText = loadingOverlay.querySelector('p');
+    const spinner = loadingOverlay.querySelector('.loading-spinner');
+    if (spinner) spinner.style.display = 'none'; // Ocultar el spinner
+    if (loadingText) {
+      loadingText.innerHTML = `<strong>Error:</strong> Could not load application data.<br>Please try refreshing the page.`;
+    }
+  }
 }
 
 document.addEventListener('DOMContentLoaded', initialize);

@@ -1517,6 +1517,41 @@ input[type="range"]::-moz-range-thumb {
   }
 }
 
+#loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(13, 17, 23, 0.9); /* --color-background-primary con opacidad */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: var(--color-text-heading);
+  font-size: 1.2em;
+}
+
+.loading-spinner {
+  border: 4px solid var(--color-border-primary);
+  border-top: 4px solid var(--color-accent-blue);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+#loading-overlay p {
+  margin: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 /* === INICIO: ESTILOS DE CARGA API AÑADIDOS === */
 .api-load-form {
   display: flex;

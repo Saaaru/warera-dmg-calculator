@@ -25,6 +25,11 @@ export function calculateCumulativeSkillCost(skillCode, level) {
 }
 
 export function calculateStatDetails(skillCode) {
+    // Aunque ya no es la causa del error principal, esta guarda es buena práctica.
+    if (!skillsData || !skillsData.skills) {
+        return { skillValue: 0, equipmentValue: 0, equipmentItems: [], ammoPercent: 0, buffPercent: 0, total: 0 };
+    }
+
     const currentSkillLevel = playerState.skillLevelsAssigned[skillCode];
     const skillBaseInfo = getSkillData(skillCode, currentSkillLevel);
     const skillValue = skillBaseInfo ? skillBaseInfo.value : 0;
@@ -34,30 +39,38 @@ export function calculateStatDetails(skillCode) {
     let ammoPercent = 0;
     let buffPercent = 0;
     let total = skillValue;
+
     switch (skillCode) {
         case 'attack':
+            // CAMBIO: Añadido encadenamiento opcional `?.` para manejar weapon=null
             equipmentValue = equippedItems.weapon?.stats?.attack || 0;
             if (equippedItems.weapon) equipmentItems.push(equippedItems.weapon);
+            
+            // CAMBIO: Añadido encadenamiento opcional `?.` para los buffs
             ammoPercent = activeBuffs.ammo?.stats?.percentAttack || 0;
             buffPercent = activeBuffs.consumable?.stats?.percentAttack || 0;
             total = (skillValue + equipmentValue) * (1 + (ammoPercent / 100) + (buffPercent / 100));
             break;
         case 'precision':
+            // CAMBIO: Añadido encadenamiento opcional `?.` para manejar gloves=null
             equipmentValue = equippedItems.gloves?.stats?.precision || 0;
             if (equippedItems.gloves) equipmentItems.push(equippedItems.gloves);
             total = skillValue + equipmentValue;
             break;
         case 'criticalChance':
+            // CAMBIO: Añadido encadenamiento opcional `?.` para manejar weapon=null
             equipmentValue = (equippedItems.weapon?.stats?.criticalChance || 0);
             if (equippedItems.weapon) equipmentItems.push(equippedItems.weapon);
             total = skillValue + equipmentValue;
             break;
         case 'criticalDamages':
+            // CAMBIO: Añadido encadenamiento opcional `?.` para manejar helmet=null
             equipmentValue = equippedItems.helmet?.stats?.criticalDamages || 0;
             if (equippedItems.helmet) equipmentItems.push(equippedItems.helmet);
             total = skillValue + equipmentValue;
             break;
         case 'armor':
+            // CAMBIO: Añadido encadenamiento opcional `?.` para chest y pants
             const chestArmor = equippedItems.chest?.stats?.armor || 0;
             const pantsArmor = equippedItems.pants?.stats?.armor || 0;
             equipmentValue = chestArmor + pantsArmor;
@@ -66,6 +79,7 @@ export function calculateStatDetails(skillCode) {
             total = skillValue + equipmentValue;
             break;
         case 'dodge':
+            // CAMBIO: Añadido encadenamiento opcional `?.` para boots
             equipmentValue = equippedItems.boots?.stats?.dodge || 0;
             if (equippedItems.boots) equipmentItems.push(equippedItems.boots);
             total = skillValue + equipmentValue;
