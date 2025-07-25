@@ -25,6 +25,7 @@ const INITIAL_PLAYER_STATE = {
   },
   selectedConfigItem: null,
   lastSimulationSummary: 'No simulation has been run yet.',
+  loadedFromApi:null
 };
 
 export let playerState = JSON.parse(JSON.stringify(INITIAL_PLAYER_STATE));

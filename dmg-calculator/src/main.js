@@ -32,20 +32,12 @@ import {
   handleProgressBlockMouseLeave,
   showFoodSelectionModal,
   hideFoodSelectionModal,
-  formatSkillValue
+  formatSkillValue,
+  showConfirmationModal,
+  renderApiLoader
 } from './ui.js';
 
-async function fetchJsonData(path) {
-  try {
-    const response = await fetch(path);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    console.error(`Could not load data from ${path}:`, error);
-    return null;
-  }
-}
-
+// === INICIO: CÓDIGO AÑADIDO (Constantes y Helpers de Presets) ===
 const PRESETS_STORAGE_KEY = 'playerBuildPresets';
 
 /**
@@ -64,171 +56,24 @@ function getPresetsFromStorage() {
   }
 }
 
-function renderPresetsList() {
-  const presets = getPresetsFromStorage();
-  ui.presetsListContainer.innerHTML = ''; // Limpiar contenedor
-
-  if (presets.length === 0) {
-    ui.presetsListContainer.innerHTML = '<p>No presets saved yet.</p>';
-    return;
-  }
-
-  presets.forEach(preset => {
-    const presetElement = document.createElement('div');
-    presetElement.className = 'preset-item';
-    presetElement.innerHTML = `
-      <span class="preset-name" title="${preset.name}">${preset.name}</span>
-      <div class="preset-actions">
-        <button class="action-btn preset-btn load-btn" data-preset-name="${preset.name}">Load</button>
-        <button class="action-btn preset-btn delete-btn" data-preset-name="${preset.name}">Delete</button>
-      </div>
-    `;
-    ui.presetsListContainer.appendChild(presetElement);
-  });
-}
-
-/**
- * Maneja el guardado de un nuevo preset.
- */
-function handleSavePreset() {
-  // === INICIO: LÓGICA MODIFICADA PARA EL NOMBRE DEL PRESET ===
-
-  // 1. Obtener la entrada del usuario.
-  const userInput = ui.presetNameInput.value.trim();
-
-  // 2. Generar siempre el resumen de habilidades.
-  const keySkillsForNaming = [
-    { code: 'attack', emoji: '🗡️' },
-    { code: 'precision', emoji: '🎯' },
-    { code: 'criticalChance', emoji: '💥' },
-    { code: 'criticalDamages', emoji: '🔥' },
-    { code: 'armor', emoji: '🛡️' },
-    { code: 'dodge', emoji: '🌀' }
-  ];
-  
-  const skillSummary = keySkillsForNaming.map(skill => {
-    const level = playerState.skillLevelsAssigned[skill.code];
-    return `${skill.emoji} ${level}`;
-  }).join(' | ');
-
-  // 3. Combinar la entrada del usuario y el resumen para crear el nombre final.
-  let finalPresetName;
-  if (userInput) {
-    // Si el usuario escribió algo, lo usamos como prefijo.
-    finalPresetName = `${userInput} || ${skillSummary}`;
-  } else {
-    // Si el campo está vacío, usamos solo el resumen como nombre.
-    finalPresetName = skillSummary;
-  }
-  
-  // === FIN: LÓGICA MODIFICADA ===
-
-  const presets = getPresetsFromStorage();
-  // Usamos el nombre final para buscar duplicados.
-  const existingPresetIndex = presets.findIndex(p => p.name === finalPresetName);
-
-  if (existingPresetIndex > -1) {
-    if (!confirm(`A preset named "${finalPresetName}" already exists. Do you want to overwrite it?`)) {
-      return;
-    }
-  }
-
-  const stateSnapshot = {
-    playerLevel: playerState.playerLevel,
-    skillLevelsAssigned: JSON.parse(JSON.stringify(playerState.skillLevelsAssigned)),
-    equippedItems: JSON.parse(JSON.stringify(playerState.equippedItems)),
-    activeBuffs: JSON.parse(JSON.stringify(playerState.activeBuffs)),
-  };
-
-  const newPreset = {
-    name: finalPresetName, // Guardar el nombre final combinado.
-    timestamp: new Date().toISOString(),
-    stateSnapshot,
-  };
-
-  if (existingPresetIndex > -1) {
-    presets[existingPresetIndex] = newPreset;
-  } else {
-    presets.push(newPreset);
-  }
-
-  savePresetsToStorage(presets);
-  ui.presetNameInput.value = ''; // Limpiar input
-  renderPresetsList();
-}
-
-/**
- * Carga un preset seleccionado, sobreescribiendo el estado actual.
- * @param {string} presetName El nombre del preset a cargar.
- */
-function handleLoadPreset(presetName) {
-  if (!confirm('Are you sure you want to load this preset? Your current build will be overwritten.')) {
-    return;
-  }
-
-  const presets = getPresetsFromStorage();
-  const preset = presets.find(p => p.name === presetName);
-
-  if (!preset) {
-    alert(`Error: Preset "${presetName}" not found.`);
-    return;
-  }
-
-  const { stateSnapshot } = preset;
-
-  // Restaurar el estado desde el snapshot
-  playerState.playerLevel = stateSnapshot.playerLevel;
-  playerState.skillLevelsAssigned = JSON.parse(JSON.stringify(stateSnapshot.skillLevelsAssigned));
-  playerState.equippedItems = JSON.parse(JSON.stringify(stateSnapshot.equippedItems));
-  playerState.activeBuffs = JSON.parse(JSON.stringify(stateSnapshot.activeBuffs));
-
-  // Crítico: Recalcular los puntos de habilidad en lugar de simplemente cargarlos.
-  const totalPointsForLevel = playerState.playerLevel * SKILL_POINTS_PER_LEVEL;
-  let spentPoints = 0;
-  for (const skillCode in playerState.skillLevelsAssigned) {
-    const level = playerState.skillLevelsAssigned[skillCode];
-    spentPoints += calculateCumulativeSkillCost(skillCode, level);
-  }
-  playerState.skillPointsSpent = spentPoints;
-  playerState.skillPointsAvailable = totalPointsForLevel - spentPoints;
-  
-  // Restaurar salud y hambre a sus valores máximos según la nueva build
-  const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
-  const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
-  playerState.currentHealth = maxHealth;
-  playerState.currentHunger = maxHunger;
-
-
-  renderAllUI();
-  // Animar el botón de carga para feedback visual
-  const loadButton = ui.presetsListContainer.querySelector(`.load-btn[data-preset-name="${presetName}"]`);
-  if (loadButton) applyButtonTransform(loadButton);
-
-  alert(`Preset "${presetName}" loaded successfully.`);
-}
-
-/**
- * Elimina un preset guardado.
- * @param {string} presetName El nombre del preset a eliminar.
- */
-function handleDeletePreset(presetName) {
-  if (!confirm(`Are you sure you want to delete the preset "${presetName}"? This action cannot be undone.`)) {
-    return;
-  }
-
-  let presets = getPresetsFromStorage();
-  presets = presets.filter(p => p.name !== presetName);
-  savePresetsToStorage(presets);
-
-  renderPresetsList();
-}
-
 /**
  * Guarda el array de presets en localStorage.
  * @param {Array} presets El array de presets a guardar.
  */
 function savePresetsToStorage(presets) {
   localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
+}
+// === FIN: CÓDIGO AÑADIDO ===
+
+async function fetchJsonData(path) {
+  try {
+    const response = await fetch(path);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error(`Could not load data from ${path}:`, error);
+    return null;
+  }
 }
 
 function handleSkillButtonClick(button) {
@@ -335,10 +180,28 @@ function handleResetGame() {
   const maxHunger = getSkillData('hunger', 0)?.value || 10;
   playerState.currentHealth = maxHealth;
   playerState.currentHunger = maxHunger;
-  if (ui.simulationLog) ui.simulationLog.innerHTML = 'Simulation results will appear here.';
+
+  if (ui.simulationLog) {
+    ui.simulationLog.innerHTML = 'Simulation results will appear here.';
+  }
+
+  // 1. Restaurar el formulario de la API
+  renderApiLoader();
+  
+  // 2. Volver a añadir el listener al nuevo botón creado
+  ui.loadFromApiBtn.addEventListener('click', handleLoadFromAPI);
+  
+  // 3. Restaurar el avatar original
+  const avatarImg = document.querySelector('.avatar');
+  if (avatarImg) {
+    avatarImg.src = 'public/images/items/avatar.png';
+  }
+  
+  // 4. Renderizar toda la UI con el estado reseteado
   renderAllUI();
   applyButtonTransform(ui.resetBtn);
 }
+
 
 function handleEquipItem() {
   const itemToConfigure = playerState.selectedConfigItem;
@@ -464,23 +327,21 @@ function handleExportBuild() {
   exportButton.textContent = 'Generating...';
   exportButton.disabled = true;
   const cardElement = document.getElementById('build-export-card');
-  
+
   html2canvas(cardElement, {
     backgroundColor: '#0d1117',
     useCORS: true,
-    scale: 2 // === CAMBIO REALIZADO: Aumentar la escala para mejor calidad de imagen
+    scale: 2
   }).then(canvas => {
     const link = document.createElement('a');
     link.download = `player-build-lvl-${playerState.playerLevel}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
-    // === CAMBIO REALIZADO: Corregido el texto del botón ===
-    exportButton.textContent = '📤 Export Build'; 
+    exportButton.textContent = '📤 Export Build';
     exportButton.disabled = false;
   }).catch(err => {
     console.error('Failed to export build:', err);
     alert('An error occurred while generating the image.');
-    // === CAMBIO REALIZADO: Corregido el texto del botón también en caso de error ===
     exportButton.textContent = '📤 Export Build';
     exportButton.disabled = false;
   });
@@ -491,7 +352,7 @@ function populateExportCard(summary) {
   document.getElementById('export-simulation-summary').textContent = summary;
   const skillsList = document.getElementById('export-skills-list');
   skillsList.innerHTML = '';
-  const skillIcons = { attack: ' 5e1  e0f', precision: ' 3af', criticalChance: ' 4a5', criticalDamages: ' 525', armor: ' 6e1  e0f', dodge: ' 300', health: ' 764  e0f', hunger: ' 357' };
+  const skillIcons = { attack: '🗡️', precision: '🎯', criticalChance: '💥', criticalDamages: '🔥', armor: '🛡️', dodge: '🌀', health: '❤️', hunger: '🍗' };
   Object.keys(skillIcons).forEach(code => {
       const level = playerState.skillLevelsAssigned[code];
       const li = document.createElement('li');
@@ -560,6 +421,275 @@ function handleFullRestore() {
   renderAllUI();
 }
 
+/**
+ * Renderiza la lista de presets guardados en el DOM.
+ */
+function renderPresetsList() {
+  const presets = getPresetsFromStorage();
+  ui.presetsListContainer.innerHTML = ''; // Limpiar contenedor
+
+  if (presets.length === 0) {
+    ui.presetsListContainer.innerHTML = '<p>No presets saved yet.</p>';
+    return;
+  }
+
+  presets.forEach(preset => {
+    const presetElement = document.createElement('div');
+    presetElement.className = 'preset-item';
+    presetElement.innerHTML = `
+      <span class="preset-name" title="${preset.name}">${preset.name}</span>
+      <div class="preset-actions">
+        <button class="action-btn preset-btn load-btn" data-preset-name="${preset.name}">Load</button>
+        <button class="action-btn preset-btn delete-btn" data-preset-name="${preset.name}">Delete</button>
+      </div>
+    `;
+    ui.presetsListContainer.appendChild(presetElement);
+  });
+}
+
+/**
+ * Maneja el guardado de un nuevo preset.
+ */
+async function handleSavePreset() {
+  const userInput = ui.presetNameInput.value.trim();
+  const keySkillsForNaming = [
+    { code: 'attack', emoji: '🗡️' },
+    { code: 'precision', emoji: '🎯' },
+    { code: 'criticalChance', emoji: '💥' },
+    { code: 'criticalDamages', emoji: '🔥' },
+    { code: 'armor', emoji: '🛡️' },
+    { code: 'dodge', emoji: '🌀' }
+  ];
+  const skillSummary = keySkillsForNaming.map(skill => {
+    const level = playerState.skillLevelsAssigned[skill.code];
+    return `${skill.emoji} ${level}`;
+  }).join(' | ');
+
+  let finalPresetName;
+  if (userInput) {
+    finalPresetName = `${userInput} || ${skillSummary}`;
+  } else {
+    finalPresetName = skillSummary;
+  }
+  
+  const presets = getPresetsFromStorage();
+  const existingPresetIndex = presets.findIndex(p => p.name === finalPresetName);
+
+  if (existingPresetIndex > -1) {
+    try {
+      await showConfirmationModal({
+        title: 'Overwrite Preset?',
+        text: `A preset named "<strong>${finalPresetName}</strong>" already exists. Do you want to overwrite it?`
+      });
+    } catch {
+      return;
+    }
+  }
+
+  const stateSnapshot = {
+    playerLevel: playerState.playerLevel,
+    skillLevelsAssigned: JSON.parse(JSON.stringify(playerState.skillLevelsAssigned)),
+    equippedItems: JSON.parse(JSON.stringify(playerState.equippedItems)),
+    activeBuffs: JSON.parse(JSON.stringify(playerState.activeBuffs)),
+  };
+
+  const newPreset = {
+    name: finalPresetName,
+    timestamp: new Date().toISOString(),
+    stateSnapshot,
+  };
+
+  if (existingPresetIndex > -1) {
+    presets[existingPresetIndex] = newPreset;
+  } else {
+    presets.push(newPreset);
+  }
+
+  savePresetsToStorage(presets);
+  ui.presetNameInput.value = '';
+  renderPresetsList();
+}
+
+/**
+ * Carga un preset seleccionado, sobreescribiendo el estado actual.
+ * @param {string} presetName El nombre del preset a cargar.
+ */
+async function handleLoadPreset(presetName) {
+  try {
+    await showConfirmationModal({
+        title: 'Load Preset?',
+        text: 'Are you sure you want to load this preset? Your current build will be overwritten.'
+    });
+  } catch {
+    return;
+  }
+
+  const presets = getPresetsFromStorage();
+  const preset = presets.find(p => p.name === presetName);
+
+  if (!preset) {
+    return;
+  }
+
+  const { stateSnapshot } = preset;
+  playerState.playerLevel = stateSnapshot.playerLevel;
+  playerState.skillLevelsAssigned = JSON.parse(JSON.stringify(stateSnapshot.skillLevelsAssigned));
+  playerState.equippedItems = JSON.parse(JSON.stringify(stateSnapshot.equippedItems));
+  playerState.activeBuffs = JSON.parse(JSON.stringify(stateSnapshot.activeBuffs));
+  const totalPointsForLevel = playerState.playerLevel * SKILL_POINTS_PER_LEVEL;
+  let spentPoints = 0;
+  for (const skillCode in playerState.skillLevelsAssigned) {
+    const level = playerState.skillLevelsAssigned[skillCode];
+    spentPoints += calculateCumulativeSkillCost(skillCode, level);
+  }
+  playerState.skillPointsSpent = spentPoints;
+  playerState.skillPointsAvailable = totalPointsForLevel - spentPoints;
+  const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
+  const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
+  playerState.currentHealth = maxHealth;
+  playerState.currentHunger = maxHunger;
+  renderAllUI();
+  const loadButton = ui.presetsListContainer.querySelector(`.load-btn[data-preset-name="${presetName}"]`);
+  if (loadButton) applyButtonTransform(loadButton);
+}
+
+/**
+ * Elimina un preset guardado.
+ * @param {string} presetName El nombre del preset a eliminar.
+ */
+async function handleDeletePreset(presetName) {
+  try {
+    await showConfirmationModal({
+        title: 'Delete Preset?',
+        text: `Are you sure you want to delete the preset "<strong>${presetName}</strong>"? This action cannot be undone.`
+    });
+  } catch {
+    return;
+  }
+
+  let presets = getPresetsFromStorage();
+  presets = presets.filter(p => p.name !== presetName);
+  savePresetsToStorage(presets);
+  renderPresetsList();
+}
+
+/**
+ * Parsea la entrada del usuario para extraer el Player ID.
+ * Acepta un ID directo o una URL de perfil completa.
+ * @param {string} input - La entrada del usuario.
+ * @returns {string|null} El ID del jugador o null si no se puede extraer.
+ */
+function extractPlayerId(input) {
+  if (!input) return null;
+  const match = input.match(/([a-f0-9]{24})/i);
+  return match ? match[1] : null;
+}
+
+/**
+ * Mapea los datos de la API al estado interno del jugador.
+ * @param {object} apiData - Los datos recibidos de la API (la parte `result.data`).
+ */
+async function mapApiDataToPlayerState(apiData) {
+  try {
+    await showConfirmationModal({
+      title: 'Load Player Data?',
+      text: `Player data for <strong>${apiData.username}</strong> found! Do you want to load this build? Your current build will be overwritten.`
+    });
+  } catch {
+    return;
+  }
+  
+  playerState.playerLevel = apiData.leveling.level;
+  Object.keys(playerState.skillLevelsAssigned).forEach(skillCode => {
+    playerState.skillLevelsAssigned[skillCode] = 0;
+  });
+
+  for (const skillCode in apiData.skills) {
+    if (playerState.skillLevelsAssigned.hasOwnProperty(skillCode)) {
+      playerState.skillLevelsAssigned[skillCode] = apiData.skills[skillCode].level;
+    }
+  }
+
+  const totalPointsForLevel = playerState.playerLevel * SKILL_POINTS_PER_LEVEL;
+  let spentPoints = 0;
+  for (const skillCode in playerState.skillLevelsAssigned) {
+    const level = playerState.skillLevelsAssigned[skillCode];
+    spentPoints += calculateCumulativeSkillCost(skillCode, level);
+  }
+  playerState.skillPointsSpent = spentPoints;
+  playerState.skillPointsAvailable = totalPointsForLevel - spentPoints;
+  const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
+  const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
+  playerState.currentHealth = maxHealth;
+  playerState.currentHunger = maxHunger;
+
+  playerState.loadedFromApi = {
+    username: apiData.username,
+    avatarUrl: apiData.avatarUrl
+  };
+  
+  showConfirmationModal({
+    title: 'Success',
+    text: `Build for user "<strong>${apiData.username}</strong>" (Level ${apiData.leveling.level}) loaded successfully!`,
+    showCancel: false,
+    confirmText: 'OK'
+  });
+  
+  renderAllUI();
+}
+
+/**
+ * Maneja la llamada a la API para cargar los datos de un jugador.
+ */
+async function handleLoadFromAPI() {
+  const userInput = ui.playerNameApiInput.value.trim();
+  const playerId = extractPlayerId(userInput);
+
+  if (!playerId) {
+    showConfirmationModal({
+        title: 'Invalid Input',
+        text: 'Please provide a valid Player ID (24 alphanumeric characters) or a full profile URL.',
+        showCancel: false,
+        confirmText: 'OK'
+    });
+    return;
+  }
+  
+  const originalButtonText = ui.loadFromApiBtn.textContent;
+  ui.loadFromApiBtn.disabled = true;
+  ui.loadFromApiBtn.textContent = 'Loading...';
+
+  try {
+    const apiObject = { "userId": playerId };
+    const encodedInput = encodeURIComponent(JSON.stringify(apiObject));
+    const apiUrl = `https://api2.warera.io/trpc/user.getUserLite?input=${encodedInput}`;
+    const response = await fetch(apiUrl);
+    if (!response.ok) {
+      throw new Error(`API returned an error: ${response.status} ${response.statusText}`);
+    }
+    const data = await response.json();
+    if (!data.result || !data.result.data) {
+        throw new Error('API response format is invalid or data is missing.');
+    }
+    mapApiDataToPlayerState(data.result.data);
+  } catch (error) {
+    console.error("Failed to fetch player data:", error);
+    let errorMessage = `Error fetching data. Player not found or the API is down.<br><br><i>Details: ${error.message}</i>`;
+    if (error instanceof TypeError) {
+        errorMessage += '<br><br>This might be a CORS issue. The API may not be accessible directly from the browser.';
+    }
+    showConfirmationModal({
+        title: 'API Error',
+        text: errorMessage,
+        showCancel: false,
+        confirmText: 'Close'
+    });
+  } finally {
+    ui.loadFromApiBtn.disabled = false;
+    ui.loadFromApiBtn.textContent = originalButtonText;
+  }
+}
+
 async function initialize() {
   const data = await fetchJsonData('public/data/skills.json');
   if (!data) {
@@ -615,11 +745,11 @@ async function initialize() {
       ui.modal.startBtn.disabled = false;
   });
   ui.modal.startBtn.addEventListener('click', startFullCombatWithFood);
+
   ui.savePresetBtn.addEventListener('click', handleSavePreset);
   ui.presetsListContainer.addEventListener('click', (event) => {
     const button = event.target.closest('.preset-btn');
     if (!button) return;
-    
     const presetName = button.dataset.presetName;
     if (button.classList.contains('load-btn')) {
       handleLoadPreset(presetName);
@@ -628,6 +758,8 @@ async function initialize() {
     }
   });
   renderPresetsList();
+  
+  ui.loadFromApiBtn.addEventListener('click', handleLoadFromAPI);
   renderAllUI();
 }
 

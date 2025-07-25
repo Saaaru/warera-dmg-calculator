@@ -10,6 +10,39 @@
 </head>
 
 <body>
+  <header class="main-header">
+    <h1>War Era Damage Calculator!</h1>
+    <div class="how-to-use">
+      <h2>How to Use</h2>
+      <div class="how-to-use-grid">
+        <div class="how-to-use-item">
+          <div class="step-title">Set Your Level</div>
+          <div class="step-description">Use the +/- buttons to set your character's level and get skill points.</div>
+        </div>
+        <div class="how-to-use-item">
+          <div class="step-title">Assign Skills</div>
+          <div class="step-description">Spend your skill points on the left panel to improve your abilities.</div>
+        </div>
+        <div class="how-to-use-item">
+          <div class="step-title">Equip Items</div>
+          <div class="step-description">Click items from the inventory to configure and equip them.</div>
+        </div>
+        <div class="how-to-use-item">
+          <div class="step-title">Load Game Data</div>
+          <div class="step-description">Use your Player ID to fetch your skills directly from the game.</div>
+        </div>
+        <div class="how-to-use-item">
+          <div class="step-title">Simulate Combat</div>
+          <div class="step-description">Test your build's performance with simulation buttons.</div>
+        </div>
+        <div class="how-to-use-item">
+          <div class="step-title">Save & Load Builds</div>
+          <div class="step-description">Use presets to save and load your favorite character builds.</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
   <div class="container">
     <!-- COLUMNA 1: SKILLS -->
     <div class="skills-section">
@@ -28,6 +61,13 @@
     <!-- COLUMNA 2: CENTRO -->
     <div class="center-column">
       <div class="character-section">
+        <div id="api-load-section" class="config-panel">
+          <h4>Load from Game</h4>
+          <div class="api-load-form">
+              <input type="text" id="player-name-api-input" placeholder="Enter your Player ID or Profile URL">
+              <button id="load-from-api-btn" class="action-btn">🔗 Fetch Data</button>
+          </div>
+      </div>
         <div class="character-header">
           <div class="player-info">
             <div class="avatar-container"><img src="public/images/items/avatar.png" alt="Player Avatar" class="avatar"><div class="level-badge" id="char-level-badge"></div></div>
@@ -76,7 +116,7 @@
           <div id="item-stats-config" class="item-stats-config"><p>Select an item from the inventory to configure it.</p></div>
           <button id="equip-item-btn" class="action-btn">Equip Item</button>
         </div>
-        <div id="presets-section" class="config-panel">
+        <div id="presets-section" class="config-panel">  
           <h4>Build Presets</h4>
           <div class="preset-save-form">
             <input type="text" id="preset-name-input" placeholder="Preset Name">
@@ -188,6 +228,16 @@
   <div class="export-footer">
     <h4>Simulation Result</h4>
     <p id="export-simulation-summary">No simulation data.</p>
+  </div>
+</div>
+<div id="generic-modal" class="modal-overlay hidden">
+  <div class="modal-content">
+    <h4 id="generic-modal-title">Confirmation</h4>
+    <p id="generic-modal-text">Are you sure?</p>
+    <div id="generic-modal-actions" class="modal-actions">
+      <button id="generic-modal-confirm-btn" class="action-btn">Confirm</button>
+      <button id="generic-modal-cancel-btn" class="action-btn reset-btn">Cancel</button>
+    </div>
   </div>
 </div>
   </body>

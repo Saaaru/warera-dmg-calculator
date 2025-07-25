@@ -61,7 +61,18 @@ function renderPlayerStatus() {
   ui.skillPointsTotal.textContent = totalPoints;
   setButtonEnabled(ui.levelMinusBtn, playerState.playerLevel > MIN_PLAYER_LEVEL);
   setButtonEnabled(ui.levelPlusBtn, playerState.playerLevel < MAX_PLAYER_LEVEL);
+
+  if (playerState.loadedFromApi) {
+    ui.apiLoadSection.innerHTML = `<h3>Build from <strong>${playerState.loadedFromApi.username}</strong></h3>`;
+    ui.apiLoadSection.style.textAlign = 'center';
+    
+    const avatarImg = document.querySelector('.avatar');
+    if (avatarImg && playerState.loadedFromApi.avatarUrl) {
+      avatarImg.src = playerState.loadedFromApi.avatarUrl;
+    }
+  }
 }
+
 
 function renderResourceBars() {
     const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
@@ -314,16 +325,79 @@ export function cacheDOMElements() {
         startBtn: document.getElementById('start-simulation-with-food-btn'),
         cancelBtn: document.getElementById('cancel-simulation-btn')
       };
-    ui.modal = {
-        overlay: document.getElementById('food-selection-modal'),
-        foodOptions: document.getElementById('modal-food-options'),
-        startBtn: document.getElementById('start-simulation-with-food-btn'),
-        cancelBtn: document.getElementById('cancel-simulation-btn')
-      };
     ui.presetsSection = document.getElementById('presets-section');
     ui.presetNameInput = document.getElementById('preset-name-input');
     ui.savePresetBtn = document.getElementById('save-preset-btn');
     ui.presetsListContainer = document.getElementById('presets-list-container');
+    ui.playerNameApiInput = document.getElementById('player-name-api-input');
+    ui.loadFromApiBtn = document.getElementById('load-from-api-btn');
+    ui.apiLoadSection = document.getElementById('api-load-section');
+    ui.genericModal = {
+        overlay: document.getElementById('generic-modal'),
+        title: document.getElementById('generic-modal-title'),
+        text: document.getElementById('generic-modal-text'),
+        confirmBtn: document.getElementById('generic-modal-confirm-btn'),
+        cancelBtn: document.getElementById('generic-modal-cancel-btn'),
+        actions: document.getElementById('generic-modal-actions'),
+    };
+}
+
+
+export function renderApiLoader() {
+    if (!ui.apiLoadSection) return;
+    
+    ui.apiLoadSection.style.textAlign = 'left';
+    ui.apiLoadSection.innerHTML = `
+        <h4>Load from Game</h4>
+        <div class="api-load-form">
+            <input type="text" id="player-name-api-input" placeholder="Enter your Player ID or Profile URL">
+            <button id="load-from-api-btn" class="action-btn">🔗 Fetch Data</button>
+        </div>
+    `;
+
+    ui.playerNameApiInput = document.getElementById('player-name-api-input');
+    ui.loadFromApiBtn = document.getElementById('load-from-api-btn');
+}
+
+
+export function showConfirmationModal({ title, text, confirmText = 'Confirm', showCancel = true }) {
+  return new Promise((resolve, reject) => {
+    ui.genericModal.title.textContent = title;
+    ui.genericModal.text.innerHTML = text;
+    ui.genericModal.confirmBtn.textContent = confirmText;
+
+    ui.genericModal.cancelBtn.style.display = showCancel ? 'inline-block' : 'none';
+    ui.genericModal.actions.style.justifyContent = showCancel ? 'flex-end' : 'center';
+    
+    ui.genericModal.overlay.classList.remove('hidden');
+
+    const handleConfirm = () => {
+      cleanup();
+      resolve();
+    };
+
+    const handleCancel = () => {
+      cleanup();
+      reject(new Error('User cancelled action'));
+    };
+    
+    const cleanup = () => {
+      ui.genericModal.overlay.classList.add('hidden');
+      ui.genericModal.confirmBtn.removeEventListener('click', handleConfirm);
+      ui.genericModal.cancelBtn.removeEventListener('click', handleCancel);
+      ui.genericModal.overlay.removeEventListener('click', overlayClickHandler);
+    };
+
+    const overlayClickHandler = (event) => {
+        if (event.target === ui.genericModal.overlay) {
+            handleCancel();
+        }
+    };
+
+    ui.genericModal.confirmBtn.addEventListener('click', handleConfirm);
+    ui.genericModal.cancelBtn.addEventListener('click', handleCancel);
+    ui.genericModal.overlay.addEventListener('click', overlayClickHandler);
+  });
 }
 
 function getProgressBlockInfo(target) {
