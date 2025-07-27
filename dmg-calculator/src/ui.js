@@ -1,9 +1,13 @@
+// --- START OF FILE ui.js ---
+
 // UI: Renders and manages the user interface, updates visual elements, and controls the visual interaction of the simulator.
 
 import { playerState, skillsData, MIN_SKILL_LEVEL, MIN_PLAYER_LEVEL, MAX_PLAYER_LEVEL, SKILL_POINTS_PER_LEVEL } from './state.js';
 import { getSkillData, calculateStatDetails, calculateCumulativeSkillCost } from './calculator.js';
 
 export const ui = {};
+
+const TIER_CLASSES = ['tier-gray', 'tier-green', 'tier-blue', 'tier-purple', 'tier-orange'];
 
 function setButtonEnabled(button, enable) {
     if (!button) return;
@@ -73,7 +77,6 @@ function renderPlayerStatus() {
   }
 }
 
-
 function renderResourceBars() {
     const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
     const healthPercentage = (playerState.currentHealth / maxHealth) * 100;
@@ -87,24 +90,40 @@ function renderResourceBars() {
 
 function renderEquippedItems() {
     if (!ui.equipmentSlots) return;
+
     for (const slot in ui.equipmentSlots) {
         const slotElement = ui.equipmentSlots[slot];
         const equippedItem = playerState.equippedItems[slot];
+
+        // 1. Limpiar siempre el contenido y las clases de tier primero.
+        slotElement.innerHTML = ''; 
+        slotElement.classList.remove(...TIER_CLASSES);
+
         if (equippedItem) {
+            // 2. Aplicar la clase de tier al slot ANTES de añadir contenido.
+            if (equippedItem.tier) {
+                slotElement.classList.add(`tier-${equippedItem.tier}`);
+            }
+
+            // 3. Crear y añadir la imagen como un nodo hijo, en lugar de usar innerHTML.
+            // Esto preserva las clases del slotElement.
             let imgCode = equippedItem.code;
-            if (imgCode.startsWith('pants')) imgCode = 'pants1';
-            else if (imgCode.startsWith('helmet')) imgCode = 'helmet1';
-            else if (imgCode.startsWith('gloves')) imgCode = 'gloves1';
-            else if (imgCode.startsWith('chest')) imgCode = 'chest1';
-            else if (imgCode.startsWith('boots')) imgCode = 'boots1';
-            const imgSrc = `public/images/items/${imgCode}.png`;
-            slotElement.innerHTML = `<img src="${imgSrc}" alt="${equippedItem.name}">`;
+            // Simplificación de la imagen para armaduras
+            if (['pants', 'helmet', 'gloves', 'chest', 'boots'].some(type => imgCode.startsWith(type))) {
+                imgCode = `${imgCode.match(/^[a-z]+/)[0]}1`;
+            }
+            
+            const img = document.createElement('img');
+            img.src = `public/images/items/${imgCode}.png`;
+            img.alt = equippedItem.name;
+            slotElement.appendChild(img);
+            
         } else {
-            slotElement.innerHTML = '+';
+            // 4. Si no hay item, simplemente establece el texto.
+            slotElement.textContent = '+';
         }
     }
 }
-
 function renderActiveBuffs() {
     const weaponEquipped = !!playerState.equippedItems.weapon;
     ui.buffButtons.forEach(button => {
@@ -112,12 +131,11 @@ function renderActiveBuffs() {
         const buffData = skillsData.skills[buffCode];
         if (!buffData) return;
         if (buffData.usage === 'ammo') {
-            setButtonEnabled(button, weaponEquipped);
-            if (!weaponEquipped) {
-                button.title = 'You must equip a weapon to use ammo.';
-            } else {
-                button.title = buffData.title || `Buff: ${formatCodeToName(buffCode)}`;
-            }
+            button.classList.toggle('btn-inactive', !weaponEquipped);
+
+            button.title = weaponEquipped 
+                ? (buffData.title || `Buff: ${formatCodeToName(buffCode)}`) 
+                : 'You must equip a weapon to use ammo.';
         }
         const buffType = buffData.usage === 'ammo' ? 'ammo' : 'consumable';
         const isActive = playerState.activeBuffs[buffType]?.code === buffCode;
@@ -125,11 +143,27 @@ function renderActiveBuffs() {
     });
 }
 
+function renderSimulationSummaries() {
+    if (ui.cumulativeDamageDisplay) {
+        ui.cumulativeDamageDisplay.textContent = playerState.cumulativeDamage.toFixed(1);
+    }
+    if (ui.fullSimDamageDisplay && ui.fullSimTicksDisplay) {
+        if (playerState.lastFullSimulationResult) {
+            ui.fullSimDamageDisplay.textContent = playerState.lastFullSimulationResult.totalDamage.toFixed(1);
+            ui.fullSimTicksDisplay.textContent = playerState.lastFullSimulationResult.ticksSurvived;
+        } else {
+            ui.fullSimDamageDisplay.textContent = '-';
+            ui.fullSimTicksDisplay.textContent = '-';
+        }
+    }
+}
+
 export function renderAllUI() {
     renderPlayerStatus();
     renderResourceBars();
     renderActiveBuffs();
     renderEquippedItems();
+    renderSimulationSummaries();
     for (const skillCode in playerState.skillLevelsAssigned) {
       renderSkill(skillCode);
     }
@@ -188,8 +222,7 @@ export function showItemConfigPanel(itemData) {
             ui.configItemIcon.alt = originalImg.alt;
         }
         ui.configItemIconContainer.className = 'inventory-item';
-        const tierClasses = ['tier-gray', 'tier-green', 'tier-blue', 'tier-purple', 'tier-orange'];
-        tierClasses.forEach(tc => { if (itemElementInGrid.classList.contains(tc)) ui.configItemIconContainer.classList.add(tc); });
+        TIER_CLASSES.forEach(tc => { if (itemElementInGrid.classList.contains(tc)) ui.configItemIconContainer.classList.add(tc); });
     }
     ui.itemStatsConfig.innerHTML = '';
     if (!itemData.dynamicStats || Object.keys(itemData.dynamicStats).length === 0) {
@@ -219,11 +252,14 @@ export function hideItemConfigPanel() {
 
 export function renderSimulationLog(result, summaryOverride = null) {
     if (!ui.simulationLog) return;
+    
     while (ui.simulationLog.children.length > 50) {
         ui.simulationLog.lastChild.remove();
     }
+    
     const logEntry = document.createElement('div');
-    logEntry.className = 'log-entry';
+    logEntry.className = 'log-entry log-entry--new';
+
     const summary = document.createElement('div');
     summary.className = 'log-summary';
     if (summaryOverride) {
@@ -235,6 +271,7 @@ export function renderSimulationLog(result, summaryOverride = null) {
           <p><strong>Health Lost:</strong> <span class="log-health-lost">${result.healthLost}</span></p>
         `;
     }
+    
     const details = document.createElement('ul');
     details.className = 'log-details';
     result.log.forEach(entry => {
@@ -242,9 +279,17 @@ export function renderSimulationLog(result, summaryOverride = null) {
         li.innerHTML = entry;
         details.appendChild(li);
     });
+    
     logEntry.appendChild(summary);
     logEntry.appendChild(details);
+    
     ui.simulationLog.prepend(logEntry);
+
+    requestAnimationFrame(() => {
+        logEntry.classList.remove('log-entry--new');
+    });
+
+    ui.simulationLog.scrollTop = 0;
 }
 
 export function showFoodSelectionModal() {
@@ -260,10 +305,7 @@ export function showFoodSelectionModal() {
             itemElement.dataset.code = code;
             const img = document.querySelector(`.inventory-item[data-code="${code}"] img`);
             const imgSrc = img ? img.src : '';
-            itemElement.innerHTML = `
-                <img src="${imgSrc}" alt="${itemData.name}">
-                <span>${formatCodeToName(code)}</span>
-            `;
+            itemElement.innerHTML = `<img src="${imgSrc}" alt="${itemData.name}"><span>${formatCodeToName(code)}</span>`;
             foodContainer.appendChild(itemElement);
         }
     });
@@ -282,6 +324,41 @@ export function hideFoodSelectionModal() {
             selected.classList.remove('selected');
         }
     }
+}
+
+// Añadimos una variable a nivel de módulo para el temporizador
+let feedbackTimeoutId = null;
+
+/**
+ * Muestra un tooltip de feedback sobre un elemento específico.
+ * @param {HTMLElement} targetElement - El elemento sobre el cual se mostrará el tooltip.
+ * @param {string} message - El mensaje a mostrar.
+ */
+export function showActionFeedbackTooltip(targetElement, message) {
+  if (!ui.actionFeedbackTooltip) return;
+
+  const tooltip = ui.actionFeedbackTooltip;
+  tooltip.textContent = message;
+
+  // Limpiar cualquier timeout anterior para resetear la animación si se hace click rápido
+  clearTimeout(feedbackTimeoutId);
+  tooltip.classList.remove('visible');
+
+  // Calcular la posición
+  const targetRect = targetElement.getBoundingClientRect();
+  tooltip.style.left = `${targetRect.left + targetRect.width / 2 - tooltip.offsetWidth / 2}px`;
+  tooltip.style.top = `${targetRect.top - tooltip.offsetHeight - 10}px`; // 10px de espacio
+
+  // Forzar un reflow para que la animación se reinicie
+  void tooltip.offsetWidth; 
+
+  // Mostrar el tooltip
+  tooltip.classList.add('visible');
+
+  // Ocultarlo después de 2.5 segundos
+  feedbackTimeoutId = setTimeout(() => {
+    tooltip.classList.remove('visible');
+  }, 2500);
 }
 
 export function cacheDOMElements() {
@@ -319,6 +396,9 @@ export function cacheDOMElements() {
     ui.exportBtn = document.getElementById('export-btn');
     ui.fullRestoreBtn = document.getElementById('full-restore-btn');
     ui.simulationLog = document.getElementById('simulation-log');
+    ui.cumulativeDamageDisplay = document.getElementById('cumulative-damage-display');
+    ui.fullSimDamageDisplay = document.getElementById('full-sim-damage-display');
+    ui.fullSimTicksDisplay = document.getElementById('full-sim-ticks-display');
     ui.modal = {
         overlay: document.getElementById('food-selection-modal'),
         foodOptions: document.getElementById('modal-food-options'),
@@ -340,8 +420,8 @@ export function cacheDOMElements() {
         cancelBtn: document.getElementById('generic-modal-cancel-btn'),
         actions: document.getElementById('generic-modal-actions'),
     };
+    ui.actionFeedbackTooltip = document.getElementById('action-feedback-tooltip');
 }
-
 
 export function renderApiLoader() {
     if (!ui.apiLoadSection) return;
@@ -350,7 +430,7 @@ export function renderApiLoader() {
     ui.apiLoadSection.innerHTML = `
         <h4>Load from Game</h4>
         <div class="api-load-form">
-            <input type="text" id="player-name-api-input" placeholder="Enter your Player ID or Profile URL">
+            <input type="text" id="player-name-api-input" placeholder="Enter Player ID, URL, or Name">
             <button id="load-from-api-btn" class="action-btn">🔗 Fetch Data</button>
         </div>
     `;
@@ -358,7 +438,6 @@ export function renderApiLoader() {
     ui.playerNameApiInput = document.getElementById('player-name-api-input');
     ui.loadFromApiBtn = document.getElementById('load-from-api-btn');
 }
-
 
 export function showConfirmationModal({ title, text, confirmText = 'Confirm', showCancel = true }) {
   return new Promise((resolve, reject) => {
@@ -371,15 +450,8 @@ export function showConfirmationModal({ title, text, confirmText = 'Confirm', sh
     
     ui.genericModal.overlay.classList.remove('hidden');
 
-    const handleConfirm = () => {
-      cleanup();
-      resolve();
-    };
-
-    const handleCancel = () => {
-      cleanup();
-      reject(new Error('User cancelled action'));
-    };
+    const handleConfirm = () => { cleanup(); resolve(); };
+    const handleCancel = () => { cleanup(); reject(new Error('User cancelled action')); };
     
     const cleanup = () => {
       ui.genericModal.overlay.classList.add('hidden');
@@ -388,11 +460,7 @@ export function showConfirmationModal({ title, text, confirmText = 'Confirm', sh
       ui.genericModal.overlay.removeEventListener('click', overlayClickHandler);
     };
 
-    const overlayClickHandler = (event) => {
-        if (event.target === ui.genericModal.overlay) {
-            handleCancel();
-        }
-    };
+    const overlayClickHandler = (event) => { if (event.target === ui.genericModal.overlay) handleCancel(); };
 
     ui.genericModal.confirmBtn.addEventListener('click', handleConfirm);
     ui.genericModal.cancelBtn.addEventListener('click', handleCancel);
@@ -422,18 +490,9 @@ export function handleProgressBlockMouseEnter(event) {
     const skillName = formatCodeToName(skillCode);
     const tooltipContent = `
         <h4>Level ${level} - ${skillName}</h4>
-        <div class="detail-line">
-            <span class="detail-label">Base Value:</span>
-            <span class="detail-value">${formatSkillValue(skillCode, skillDataForLevel.value)}</span>
-        </div>
-        <div class="detail-line">
-            <span class="detail-label">Cost for this level:</span>
-            <span class="detail-value">${skillDataForLevel.cost} SP</span>
-        </div>
-        <div class="detail-line">
-            <span class="detail-label">Total cost to reach:</span>
-            <span class="detail-value">${totalCost} SP</span>
-        </div>
+        <div class="detail-line"><span class="detail-label">Base Value:</span><span class="detail-value">${formatSkillValue(skillCode, skillDataForLevel.value)}</span></div>
+        <div class="detail-line"><span class="detail-label">Cost for this level:</span><span class="detail-value">${skillDataForLevel.cost} SP</span></div>
+        <div class="detail-line"><span class="detail-label">Total cost to reach:</span><span class="detail-value">${totalCost} SP</span></div>
     `;
     ui.statTooltip.innerHTML = tooltipContent;
     ui.statTooltip.style.opacity = 1;

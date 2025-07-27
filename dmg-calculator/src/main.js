@@ -1,3 +1,5 @@
+// --- START OF FILE main.js ---
+
 // Main file: Handles initialization, events, and interaction logic for the damage simulator and player management.
 
 import {
@@ -34,10 +36,11 @@ import {
   hideFoodSelectionModal,
   formatSkillValue,
   showConfirmationModal,
-  renderApiLoader
+  renderApiLoader,
+  showActionFeedbackTooltip
 } from './ui.js';
 
-// === INICIO: CÓDIGO AÑADIDO (Constantes y Helpers de Presets) ===
+// === PRESET HELPERS ===
 const PRESETS_STORAGE_KEY = 'playerBuildPresets';
 
 /**
@@ -50,7 +53,6 @@ function getPresetsFromStorage() {
     return presetsJson ? JSON.parse(presetsJson) : [];
   } catch (error) {
     console.error("Error parsing presets from localStorage:", error);
-    // Si los datos están corruptos, los eliminamos para evitar errores futuros.
     localStorage.removeItem(PRESETS_STORAGE_KEY);
     return [];
   }
@@ -63,7 +65,6 @@ function getPresetsFromStorage() {
 function savePresetsToStorage(presets) {
   localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
 }
-// === FIN: CÓDIGO AÑADIDO ===
 
 async function fetchJsonData(path) {
   try {
@@ -84,6 +85,7 @@ function handleSkillButtonClick(button) {
   const maxHungerBefore = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
   const wasHealthMax = playerState.currentHealth >= maxHealthBefore;
   const wasHungerMax = playerState.currentHunger >= maxHungerBefore;
+
   if (action === 'plus') {
     const nextLevel = Math.min(currentLevel + 1, MAX_SKILL_LEVEL);
     const nextSkillInfo = getSkillData(skillCode, nextLevel);
@@ -100,6 +102,7 @@ function handleSkillButtonClick(button) {
         playerState.skillPointsSpent -= refundedCost;
     }
   }
+
   if (action === 'plus') {
     if (skillCode === 'health' && wasHealthMax) {
         const maxHealthAfter = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
@@ -168,7 +171,6 @@ function handleConsumeFood(foodData) {
   const healthRestored = foodData.flatStats.healthRegen || 0;
   playerState.currentHunger -= 1;
   playerState.currentHealth += healthRestored;
-  console.log(`Consumed ${foodData.name || foodData.code}, restored ${healthRestored} health.`);
   renderAllUI();
 }
 
@@ -185,19 +187,14 @@ function handleResetGame() {
     ui.simulationLog.innerHTML = 'Simulation results will appear here.';
   }
 
-  // 1. Restaurar el formulario de la API
   renderApiLoader();
-  
-  // 2. Volver a añadir el listener al nuevo botón creado
   ui.loadFromApiBtn.addEventListener('click', handleLoadFromAPI);
   
-  // 3. Restaurar el avatar original
   const avatarImg = document.querySelector('.avatar');
   if (avatarImg) {
     avatarImg.src = 'public/images/items/avatar.png';
   }
   
-  // 4. Renderizar toda la UI con el estado reseteado
   renderAllUI();
   applyButtonTransform(ui.resetBtn);
 }
@@ -220,7 +217,8 @@ function handleEquipItem() {
   const equippedItem = {
       code: itemToConfigure.code,
       name: formatCodeToName(itemToConfigure.code),
-      stats: configuredStats
+      stats: configuredStats,
+      tier: itemToConfigure.tier
   };
   playerState.equippedItems[itemSlot] = equippedItem;
   Object.keys(equippedItem.stats).forEach(statCode => {
@@ -247,16 +245,29 @@ function handleUnequipItem(event) {
 
 function handleBuffButtonClick(event) {
   const button = event.target.closest('.buff-btn');
-  if (!button || button.disabled) return;
+  if (!button) return;
+
+  // === INICIO DE LA CORRECCIÓN ===
+  // Ahora verificamos la clase '.btn-inactive' en lugar del atributo 'disabled'.
+  // Esto funcionará porque el botón ya no está realmente deshabilitado.
+  if (button.classList.contains('btn-inactive')) {
+    showActionFeedbackTooltip(button, "You can't use ammo without a weapon equipped!");
+    return; // Detenemos la ejecución aquí.
+  }
+  // === FIN DE LA CORRECCIÓN ===
+
   const buffCode = button.dataset.buffCode;
   const buffData = skillsData.skills[buffCode];
   if (!buffData) return;
+
   const buffType = buffData.usage === 'ammo' ? 'ammo' : 'consumable';
   const buffObject = {
       code: buffCode,
       name: formatCodeToName(buffCode),
       stats: buffData.flatStats,
+      tier: buffData.tier
   };
+  
   if (buffType === 'ammo') {
     if (playerState.activeBuffs.ammo?.code === buffCode) {
       playerState.activeBuffs.ammo = null;
@@ -282,6 +293,7 @@ function handleDamageSimulation() {
   }
   const simulationResult = simulateCombatTick();
   playerState.currentHealth = Math.max(0, playerState.currentHealth - simulationResult.healthLost);
+  playerState.cumulativeDamage += simulationResult.finalDamageDealt;
   renderSimulationLog(simulationResult);
   applyButtonTransform(ui.simulateBtn);
   renderAllUI();
@@ -307,10 +319,17 @@ function startFullCombatWithFood() {
   const itemCode = selectedItemElement.dataset.code;
   const foodItem = skillsData.skills[itemCode];
   const fullResult = simulateFullCombatWithFood({ ...foodItem, name: formatCodeToName(itemCode) });
+  
   playerState.currentHealth = fullResult.finalHealth;
   playerState.currentHunger = fullResult.finalHunger;
+  
   const summary = `Survived ${fullResult.ticksSurvived} hits using ${formatCodeToName(itemCode)}, dealing ${fullResult.totalDamageDealt} total damage.`;
   playerState.lastSimulationSummary = summary;
+  playerState.lastFullSimulationResult = {
+    totalDamage: fullResult.totalDamageDealt,
+    ticksSurvived: fullResult.ticksSurvived
+  };
+  
   renderSimulationLog(fullResult, summary);
   hideFoodSelectionModal();
   renderAllUI(); 
@@ -402,7 +421,13 @@ function populateExportCard(summary) {
       slotDiv.className = 'export-equipment-slot';
       let content = `<span class="slot-name">${formatCodeToName(slot)}</span>`;
       if (item) {
-          const imgSrc = `public/images/items/${item.code}.png`;
+          let imgCode = item.code;
+          if (imgCode.startsWith('pants')) imgCode = 'pants1';
+          else if (imgCode.startsWith('helmet')) imgCode = 'helmet1';
+          else if (imgCode.startsWith('gloves')) imgCode = 'gloves1';
+          else if (imgCode.startsWith('chest')) imgCode = 'chest1';
+          else if (imgCode.startsWith('boots')) imgCode = 'boots1';
+          const imgSrc = `public/images/items/${imgCode}.png`;
           content += `<img src="${imgSrc}" alt="${item.name}">`;
       } else {
           content += '<span>-</span>';
@@ -426,7 +451,7 @@ function handleFullRestore() {
  */
 function renderPresetsList() {
   const presets = getPresetsFromStorage();
-  ui.presetsListContainer.innerHTML = ''; // Limpiar contenedor
+  ui.presetsListContainer.innerHTML = '';
 
   if (presets.length === 0) {
     ui.presetsListContainer.innerHTML = '<p>No presets saved yet.</p>';
@@ -453,24 +478,12 @@ function renderPresetsList() {
 async function handleSavePreset() {
   const userInput = ui.presetNameInput.value.trim();
   const keySkillsForNaming = [
-    { code: 'attack', emoji: '🗡️' },
-    { code: 'precision', emoji: '🎯' },
-    { code: 'criticalChance', emoji: '💥' },
-    { code: 'criticalDamages', emoji: '🔥' },
-    { code: 'armor', emoji: '🛡️' },
-    { code: 'dodge', emoji: '🌀' }
+    { code: 'attack', emoji: '🗡️' }, { code: 'precision', emoji: '🎯' }, { code: 'criticalChance', emoji: '💥' },
+    { code: 'criticalDamages', emoji: '🔥' }, { code: 'armor', emoji: '🛡️' }, { code: 'dodge', emoji: '🌀' }
   ];
-  const skillSummary = keySkillsForNaming.map(skill => {
-    const level = playerState.skillLevelsAssigned[skill.code];
-    return `${skill.emoji} ${level}`;
-  }).join(' | ');
+  const skillSummary = keySkillsForNaming.map(skill => `${skill.emoji} ${playerState.skillLevelsAssigned[skill.code]}`).join(' | ');
 
-  let finalPresetName;
-  if (userInput) {
-    finalPresetName = `${userInput} || ${skillSummary}`;
-  } else {
-    finalPresetName = skillSummary;
-  }
+  const finalPresetName = userInput ? `${userInput} || ${skillSummary}` : skillSummary;
   
   const presets = getPresetsFromStorage();
   const existingPresetIndex = presets.findIndex(p => p.name === finalPresetName);
@@ -493,11 +506,7 @@ async function handleSavePreset() {
     activeBuffs: JSON.parse(JSON.stringify(playerState.activeBuffs)),
   };
 
-  const newPreset = {
-    name: finalPresetName,
-    timestamp: new Date().toISOString(),
-    stateSnapshot,
-  };
+  const newPreset = { name: finalPresetName, timestamp: new Date().toISOString(), stateSnapshot };
 
   if (existingPresetIndex > -1) {
     presets[existingPresetIndex] = newPreset;
@@ -524,30 +533,28 @@ async function handleLoadPreset(presetName) {
     return;
   }
 
-  const presets = getPresetsFromStorage();
-  const preset = presets.find(p => p.name === presetName);
-
-  if (!preset) {
-    return;
-  }
+  const preset = getPresetsFromStorage().find(p => p.name === presetName);
+  if (!preset) return;
 
   const { stateSnapshot } = preset;
   playerState.playerLevel = stateSnapshot.playerLevel;
   playerState.skillLevelsAssigned = JSON.parse(JSON.stringify(stateSnapshot.skillLevelsAssigned));
   playerState.equippedItems = JSON.parse(JSON.stringify(stateSnapshot.equippedItems));
   playerState.activeBuffs = JSON.parse(JSON.stringify(stateSnapshot.activeBuffs));
+  
   const totalPointsForLevel = playerState.playerLevel * SKILL_POINTS_PER_LEVEL;
   let spentPoints = 0;
   for (const skillCode in playerState.skillLevelsAssigned) {
-    const level = playerState.skillLevelsAssigned[skillCode];
-    spentPoints += calculateCumulativeSkillCost(skillCode, level);
+    spentPoints += calculateCumulativeSkillCost(skillCode, playerState.skillLevelsAssigned[skillCode]);
   }
   playerState.skillPointsSpent = spentPoints;
   playerState.skillPointsAvailable = totalPointsForLevel - spentPoints;
+  
   const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
   const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
   playerState.currentHealth = maxHealth;
   playerState.currentHunger = maxHunger;
+  
   renderAllUI();
   const loadButton = ui.presetsListContainer.querySelector(`.load-btn[data-preset-name="${presetName}"]`);
   if (loadButton) applyButtonTransform(loadButton);
@@ -567,28 +574,37 @@ async function handleDeletePreset(presetName) {
     return;
   }
 
-  let presets = getPresetsFromStorage();
-  presets = presets.filter(p => p.name !== presetName);
-  savePresetsToStorage(presets);
+  const newPresets = getPresetsFromStorage().filter(p => p.name !== presetName);
+  savePresetsToStorage(newPresets);
   renderPresetsList();
 }
 
 /**
- * Parsea la entrada del usuario para extraer el Player ID.
- * Acepta un ID directo o una URL de perfil completa.
- * @param {string} input - La entrada del usuario.
- * @returns {string|null} El ID del jugador o null si no se puede extraer.
+ * Extrae un Player ID de 24 caracteres de una cadena.
+ * @param {string} input La cadena de entrada (ID, URL, etc.).
+ * @returns {string|null} El ID del jugador o null si no se encuentra.
  */
-function extractPlayerId(input) {
+function getPlayerIdFromInput(input) {
   if (!input) return null;
   const match = input.match(/([a-f0-9]{24})/i);
   return match ? match[1] : null;
 }
 
 /**
- * Mapea los datos de la API al estado interno del jugador.
- * @param {object} apiData - Los datos recibidos de la API (la parte `result.data`).
+ * Busca un Player ID a partir de un nombre de usuario.
+ * @param {string} username El nombre de usuario.
+ * @returns {Promise<string|null>} El primer ID de jugador encontrado o null.
  */
+async function searchPlayerIdByUsername(username) {
+    const apiObject = { "searchText": username };
+    const encodedInput = encodeURIComponent(JSON.stringify(apiObject));
+    const searchUrl = `https://api2.warera.io/trpc/search.searchAnything?input=${encodedInput}`;
+    const response = await fetch(searchUrl);
+    if (!response.ok) throw new Error(`Search API returned an error: ${response.status}`);
+    const data = await response.json();
+    return data.result?.data?.userIds?.[0] || null;
+}
+
 async function mapApiDataToPlayerState(apiData) {
   try {
     await showConfirmationModal({
@@ -601,89 +617,76 @@ async function mapApiDataToPlayerState(apiData) {
   
   playerState.playerLevel = apiData.leveling.level;
   Object.keys(playerState.skillLevelsAssigned).forEach(skillCode => {
-    playerState.skillLevelsAssigned[skillCode] = 0;
+    playerState.skillLevelsAssigned[skillCode] = apiData.skills[skillCode]?.level || 0;
   });
-
-  for (const skillCode in apiData.skills) {
-    if (playerState.skillLevelsAssigned.hasOwnProperty(skillCode)) {
-      playerState.skillLevelsAssigned[skillCode] = apiData.skills[skillCode].level;
-    }
-  }
 
   const totalPointsForLevel = playerState.playerLevel * SKILL_POINTS_PER_LEVEL;
   let spentPoints = 0;
   for (const skillCode in playerState.skillLevelsAssigned) {
-    const level = playerState.skillLevelsAssigned[skillCode];
-    spentPoints += calculateCumulativeSkillCost(skillCode, level);
+    spentPoints += calculateCumulativeSkillCost(skillCode, playerState.skillLevelsAssigned[skillCode]);
   }
   playerState.skillPointsSpent = spentPoints;
   playerState.skillPointsAvailable = totalPointsForLevel - spentPoints;
+  
   const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
   const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
   playerState.currentHealth = maxHealth;
   playerState.currentHunger = maxHunger;
 
-  playerState.loadedFromApi = {
-    username: apiData.username,
-    avatarUrl: apiData.avatarUrl
-  };
+  playerState.loadedFromApi = { username: apiData.username, avatarUrl: apiData.avatarUrl };
   
   showConfirmationModal({
     title: 'Success',
     text: `Build for user "<strong>${apiData.username}</strong>" (Level ${apiData.leveling.level}) loaded successfully!`,
-    showCancel: false,
-    confirmText: 'OK'
+    showCancel: false, confirmText: 'OK'
   });
   
   renderAllUI();
 }
 
 /**
- * Maneja la llamada a la API para cargar los datos de un jugador.
+ * Maneja la llamada a la API para cargar los datos de un jugador por ID, URL o nombre.
  */
 async function handleLoadFromAPI() {
   const userInput = ui.playerNameApiInput.value.trim();
-  const playerId = extractPlayerId(userInput);
-
-  if (!playerId) {
-    showConfirmationModal({
-        title: 'Invalid Input',
-        text: 'Please provide a valid Player ID (24 alphanumeric characters) or a full profile URL.',
-        showCancel: false,
-        confirmText: 'OK'
-    });
+  if (!userInput) {
+    showConfirmationModal({ title: 'Input Required', text: 'Please enter a Player ID, Profile URL, or Username.', showCancel: false, confirmText: 'OK' });
     return;
   }
   
   const originalButtonText = ui.loadFromApiBtn.textContent;
   ui.loadFromApiBtn.disabled = true;
-  ui.loadFromApiBtn.textContent = 'Loading...';
+  ui.loadFromApiBtn.textContent = 'Searching...';
 
   try {
+    let playerId = getPlayerIdFromInput(userInput);
+
+    if (!playerId) {
+      ui.loadFromApiBtn.textContent = 'Finding User...';
+      playerId = await searchPlayerIdByUsername(userInput);
+      if (!playerId) throw new Error(`No player found with the name "${userInput}".`);
+    }
+    
+    ui.loadFromApiBtn.textContent = 'Fetching Data...';
     const apiObject = { "userId": playerId };
     const encodedInput = encodeURIComponent(JSON.stringify(apiObject));
     const apiUrl = `https://api2.warera.io/trpc/user.getUserLite?input=${encodedInput}`;
+    
     const response = await fetch(apiUrl);
-    if (!response.ok) {
-      throw new Error(`API returned an error: ${response.status} ${response.statusText}`);
-    }
+    if (!response.ok) throw new Error(`API returned an error: ${response.status} ${response.statusText}`);
+    
     const data = await response.json();
-    if (!data.result || !data.result.data) {
-        throw new Error('API response format is invalid or data is missing.');
-    }
-    mapApiDataToPlayerState(data.result.data);
+    if (!data.result || !data.result.data) throw new Error('API response format is invalid or data is missing.');
+    
+    await mapApiDataToPlayerState(data.result.data);
+
   } catch (error) {
     console.error("Failed to fetch player data:", error);
-    let errorMessage = `Error fetching data. Player not found or the API is down.<br><br><i>Details: ${error.message}</i>`;
+    let errorMessage = `${error.message}`;
     if (error instanceof TypeError) {
-        errorMessage += '<br><br>This might be a CORS issue. The API may not be accessible directly from the browser.';
+        errorMessage += '<br><br>This might be a network or CORS issue.';
     }
-    showConfirmationModal({
-        title: 'API Error',
-        text: errorMessage,
-        showCancel: false,
-        confirmText: 'Close'
-    });
+    showConfirmationModal({ title: 'API Error', text: errorMessage, showCancel: false, confirmText: 'Close' });
   } finally {
     ui.loadFromApiBtn.disabled = false;
     ui.loadFromApiBtn.textContent = originalButtonText;
@@ -695,24 +698,19 @@ async function initialize() {
   const mainContainer = document.querySelector('.container');
 
   try {
-    // 1. Cargar los datos. La ejecución se detiene aquí hasta que se resuelva.
     const data = await fetchJsonData('public/data/skills.json');
-    if (!data) {
-      // Si el fetch fue exitoso pero el archivo está vacío o malformado, lanzamos un error.
-      throw new Error("Skill data file is empty or invalid.");
-    }
+    if (!data) throw new Error("Skill data file is empty or invalid.");
 
-    // 2. Una vez que los datos están listos, configuramos el estado y la UI.
     setSkillsData(data);
     const maxHealth = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
     const maxHunger = getSkillData('hunger', playerState.skillLevelsAssigned.hunger)?.value || 10;
     playerState.currentHealth = maxHealth;
     playerState.currentHunger = maxHunger;
-
-    cacheDOMElements();
     playerState.skillPointsAvailable = (playerState.playerLevel * SKILL_POINTS_PER_LEVEL) - playerState.skillPointsSpent;
 
-    // Registrar todos los event listeners
+    cacheDOMElements();
+
+    // Register all event listeners
     document.querySelector('.skills-section').addEventListener('click', (event) => {
       const button = event.target.closest('.skill-btn');
       if (button && !button.disabled) {
@@ -743,9 +741,7 @@ async function initialize() {
         if (event.target.classList.contains('progress-block')) handleProgressBlockMouseLeave(event);
     });
     ui.modal.cancelBtn.addEventListener('click', hideFoodSelectionModal);
-    ui.modal.overlay.addEventListener('click', (event) => {
-        if (event.target === ui.modal.overlay) hideFoodSelectionModal();
-    });
+    ui.modal.overlay.addEventListener('click', (event) => { if (event.target === ui.modal.overlay) hideFoodSelectionModal(); });
     ui.modal.foodOptions.addEventListener('click', (event) => {
         const itemElement = event.target.closest('.modal-food-item');
         if (!itemElement) return;
@@ -760,31 +756,23 @@ async function initialize() {
       const button = event.target.closest('.preset-btn');
       if (!button) return;
       const presetName = button.dataset.presetName;
-      if (button.classList.contains('load-btn')) {
-        handleLoadPreset(presetName);
-      } else if (button.classList.contains('delete-btn')) {
-        handleDeletePreset(presetName);
-      }
+      if (button.classList.contains('load-btn')) handleLoadPreset(presetName);
+      else if (button.classList.contains('delete-btn')) handleDeletePreset(presetName);
     });
     renderPresetsList();
     ui.loadFromApiBtn.addEventListener('click', handleLoadFromAPI);
 
-    // 3. Renderizar la UI por primera vez con los datos ya cargados.
     renderAllUI();
 
-    // 4. ¡Todo está listo! Ocultamos la carga y mostramos la aplicación.
     loadingOverlay.classList.add('hidden');
     mainContainer.classList.remove('hidden');
 
   } catch (error) {
-    // Si algo falla (el fetch o el procesamiento), mostramos un error al usuario.
     console.error("Fatal error during initialization:", error);
     const loadingText = loadingOverlay.querySelector('p');
     const spinner = loadingOverlay.querySelector('.loading-spinner');
-    if (spinner) spinner.style.display = 'none'; // Ocultar el spinner
-    if (loadingText) {
-      loadingText.innerHTML = `<strong>Error:</strong> Could not load application data.<br>Please try refreshing the page.`;
-    }
+    if (spinner) spinner.style.display = 'none';
+    if (loadingText) loadingText.innerHTML = `<strong>Error:</strong> Could not load application data.<br>Please try refreshing the page.`;
   }
 }
 

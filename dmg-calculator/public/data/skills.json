@@ -608,7 +608,7 @@
         "bread": {
           "type": "product",
           "code": "bread",
-          "rarity": "uncommon",
+          "tier": "green",
           "productionPoints": 10,
           "productionNeeds": {
             "grain": 10
@@ -621,7 +621,7 @@
         "steak": {
           "type": "product",
           "code": "steak",
-          "rarity": "rare",
+          "tier": "blue",
           "productionPoints": 20,
           "productionNeeds": {
             "livestock": 1
@@ -634,7 +634,7 @@
         "cookedFish": {
           "type": "product",
           "code": "cookedFish",
-          "rarity": "epic",
+          "tier": "purple",
           "productionPoints": 40,
           "productionNeeds": {
             "fish": 1
@@ -648,7 +648,7 @@
           "type": "product",
           "code": "lightAmmo",
           "usage": "ammo",
-          "rarity": "uncommon",
+          "tier": "green",
           "productionPoints": 1,
           "productionNeeds": {
             "lead": 1
@@ -661,7 +661,7 @@
           "type": "product",
           "code": "ammo",
           "usage": "ammo",
-          "rarity": "rare",
+          "tier": "blue",
           "productionPoints": 4,
           "productionNeeds": {
             "lead": 4
@@ -673,7 +673,7 @@
         "cocain": {
           "type": "product",
           "code": "cocain",
-          "rarity": "epic",
+          "tier": "purple",
           "productionPoints": 200,
           "productionNeeds": {
             "coca": 200
@@ -686,7 +686,7 @@
           "type": "product",
           "code": "heavyAmmo",
           "usage": "ammo",
-          "rarity": "epic",
+          "tier": "purple",
           "flatStats": {
             "percentAttack": 40
           },
@@ -699,7 +699,7 @@
           "type": "weapon",
           "code": "knife",
           "usage": "weapon",
-          "rarity": "common",
+          "tier": "gray",
           "dynamicStats": {
             "attack": [20, 40],
             "criticalChance": [1, 5]
@@ -709,7 +709,7 @@
           "type": "weapon",
           "code": "gun",
           "usage": "weapon",
-          "rarity": "uncommon",
+          "tier": "green",
           "dynamicStats": {
             "attack": [50, 60],
             "criticalChance": [1, 10]
@@ -719,7 +719,7 @@
           "type": "weapon",
           "code": "rifle",
           "usage": "weapon",
-          "rarity": "rare",
+          "tier": "blue",
           "dynamicStats": {
             "attack": [70, 90],
             "criticalChance": [5, 15]
@@ -729,7 +729,7 @@
           "type": "weapon",
           "code": "sniper",
           "usage": "weapon",
-          "rarity": "epic",
+          "tier": "purple",
           "dynamicStats": {
             "attack": [100, 120],
             "criticalChance": [10, 20]
@@ -739,7 +739,7 @@
           "type": "weapon",
           "code": "tank",
           "usage": "weapon",
-          "rarity": "legendary",
+          "tier": "orange",
           "dynamicStats": {
             "attack": [130, 160],
             "criticalChance": [10, 30]
@@ -749,7 +749,7 @@
           "type": "equipment",
           "code": "helmet1",
           "usage": "helmet",
-          "rarity": "common",
+          "tier": "gray",
           "dynamicStats": {
             "criticalDamages": [1, 5]
           }
@@ -758,7 +758,7 @@
           "type": "equipment",
           "code": "helmet2",
           "usage": "helmet",
-          "rarity": "uncommon",
+          "tier": "green",
           "dynamicStats": {
             "criticalDamages": [4, 10]
           }
@@ -767,7 +767,7 @@
           "type": "equipment",
           "code": "helmet3",
           "usage": "helmet",
-          "rarity": "rare",
+          "tier": "blue",
           "dynamicStats": {
             "criticalDamages": [8, 15]
           }
@@ -776,7 +776,7 @@
           "type": "equipment",
           "code": "helmet4",
           "usage": "helmet",
-          "rarity": "epic",
+          "tier": "purple",
           "dynamicStats": {
             "criticalDamages": [14, 20]
           }
@@ -785,7 +785,7 @@
           "type": "equipment",
           "code": "helmet5",
           "usage": "helmet",
-          "rarity": "legendary",
+          "tier": "orange",
           "dynamicStats": {
             "criticalDamages": [19, 30]
           }
@@ -794,7 +794,7 @@
           "type": "equipment",
           "code": "chest1",
           "usage": "chest",
-          "rarity": "common",
+          "tier": "gray",
           "dynamicStats": {
             "armor": [1, 5]
           }
@@ -803,7 +803,7 @@
           "type": "equipment",
           "code": "chest2",
           "usage": "chest",
-          "rarity": "uncommon",
+          "tier": "green",
           "dynamicStats": {
             "armor": [4, 10]
           }
@@ -812,7 +812,7 @@
           "type": "equipment",
           "code": "chest3",
           "usage": "chest",
-          "rarity": "rare",
+          "tier": "blue",
           "dynamicStats": {
             "armor": [8, 15]
           }
@@ -821,7 +821,7 @@
           "type": "equipment",
           "code": "chest4",
           "usage": "chest",
-          "rarity": "epic",
+          "tier": "purple",
           "dynamicStats": {
             "armor": [14, 20]
           }
@@ -830,7 +830,7 @@
           "type": "equipment",
           "code": "chest5",
           "usage": "chest",
-          "rarity": "legendary",
+          "tier": "orange",
           "dynamicStats": {
             "armor": [19, 30]
           }
@@ -839,7 +839,7 @@
           "type": "equipment",
           "code": "boots1",
           "usage": "boots",
-          "rarity": "common",
+          "tier": "gray",
           "dynamicStats": {
             "dodge": [1, 5]
           }
@@ -848,7 +848,7 @@
           "type": "equipment",
           "code": "boots2",
           "usage": "boots",
-          "rarity": "uncommon",
+          "tier": "green",
           "dynamicStats": {
             "dodge": [4, 10]
           }
@@ -857,7 +857,7 @@
           "type": "equipment",
           "code": "boots3",
           "usage": "boots",
-          "rarity": "rare",
+          "tier": "blue",
           "dynamicStats": {
             "dodge": [8, 15]
           }
@@ -866,7 +866,7 @@
           "type": "equipment",
           "code": "boots4",
           "usage": "boots",
-          "rarity": "epic",
+          "tier": "purple",
           "dynamicStats": {
             "dodge": [14, 20]
           }
@@ -875,7 +875,7 @@
           "type": "equipment",
           "code": "boots5",
           "usage": "boots",
-          "rarity": "legendary",
+          "tier": "orange",
           "dynamicStats": {
             "dodge": [19, 30]
           }
@@ -884,7 +884,7 @@
           "type": "equipment",
           "code": "gloves1",
           "usage": "gloves",
-          "rarity": "common",
+          "tier": "gray",
           "dynamicStats": {
             "precision": [1, 5]
           }
@@ -893,7 +893,7 @@
           "type": "equipment",
           "code": "gloves2",
           "usage": "gloves",
-          "rarity": "uncommon",
+          "tier": "green",
           "dynamicStats": {
             "precision": [4, 10]
           }
@@ -902,7 +902,7 @@
           "type": "equipment",
           "code": "gloves3",
           "usage": "gloves",
-          "rarity": "rare",
+          "tier": "blue",
           "dynamicStats": {
             "precision": [8, 15]
           }
@@ -911,7 +911,7 @@
           "type": "equipment",
           "code": "gloves4",
           "usage": "gloves",
-          "rarity": "epic",
+          "tier": "purple",
           "dynamicStats": {
             "precision": [14, 25]
           }
@@ -920,7 +920,7 @@
           "type": "equipment",
           "code": "gloves5",
           "usage": "gloves",
-          "rarity": "legendary",
+          "tier": "orange",
           "dynamicStats": {
             "precision": [19, 35]
           }
@@ -929,7 +929,7 @@
           "usage": "pants",
           "type": "equipment",
           "code": "pants1",
-          "rarity": "common",
+          "tier": "gray",
           "dynamicStats": {
             "armor": [1, 5]
           }
@@ -938,7 +938,7 @@
           "usage": "pants",
           "type": "equipment",
           "code": "pants2",
-          "rarity": "uncommon",
+          "tier": "green",
           "dynamicStats": {
             "armor": [4, 10]
           }
@@ -947,7 +947,7 @@
           "usage": "pants",
           "type": "equipment",
           "code": "pants3",
-          "rarity": "rare",
+          "tier": "blue",
           "dynamicStats": {
             "armor": [8, 15]
           }
@@ -956,7 +956,7 @@
           "usage": "pants",
           "type": "equipment",
           "code": "pants4",
-          "rarity": "epic",
+          "tier": "purple",
           "dynamicStats": {
             "armor": [14, 20]
           }
@@ -965,7 +965,7 @@
           "usage": "pants",
           "type": "equipment",
           "code": "pants5",
-          "rarity": "legendary",
+          "tier": "orange",
           "dynamicStats": {
             "armor": [19, 30]
           }

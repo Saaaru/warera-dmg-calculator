@@ -15,7 +15,17 @@
     <p>Loading Game Data...</p>
   </div>
   <header class="main-header">
-    <h1>War Era Damage Calculator!</h1>
+    <div class="header-top-content">
+      <div class="header-title-container">
+        <h1>War Era Damage Calculator!</h1>
+      </div>
+      <div class="header-support-container">
+        <a href="https://coff.ee/saaaaru" target="_blank" rel="noopener noreferrer" class="support-btn">
+          <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee">
+        </a>
+                <!-- Puedes agregar más botones aquí si lo deseas -->
+      </div>
+    </div>
     <div class="how-to-use">
       <h2>How to Use</h2>
       <div class="how-to-use-grid">
@@ -130,6 +140,27 @@
             <p>No presets saved yet.</p>
           </div>
         </div>
+        <div id="total-damage-section" class="total-damage-section">
+          <h4>Total Damage Dealt</h4>
+          <div id="total-damage-display" class="total-damage-value">0</div>
+          <div id="simulation-summary-container">
+            <div class="summary-box">
+              <h4 class="summary-title">Single Hit Cumulative</h4>
+              <div id="cumulative-damage-display" class="summary-value">0</div>
+            </div>
+            <div class="summary-box">
+              <h4 class="summary-title">Last Full Simulation</h4>
+              <div class="summary-value-group">
+                <span id="full-sim-damage-display" class="summary-value">-</span>
+                <span class="summary-label">Damage</span>
+              </div>
+              <div class="summary-value-group">
+                <span id="full-sim-ticks-display" class="summary-value">-</span>
+                <span class="summary-label">Hits Survived</span>
+              </div>
+            </div>
+          </div>
+        </div>
         <div id="simulation-panel" class="simulation-panel">
           <button id="simulate-btn" class="action-btn">Simulate Damage</button>
           <button id="simulate-full-btn" class="action-btn">Simulate Full Combat</button>
@@ -241,9 +272,11 @@
         <div id="generic-modal-actions" class="modal-actions">
           <button id="generic-modal-confirm-btn" class="action-btn">Confirm</button>
           <button id="generic-modal-cancel-btn" class="action-btn reset-btn">Cancel</button>
-        </div>
+        </div>        
       </div>
     </div>
+    
 </div>
+<div id="action-feedback-tooltip" class="action-feedback-tooltip"></div>
 </body>
 </html>

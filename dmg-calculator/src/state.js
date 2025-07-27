@@ -1,3 +1,5 @@
+// --- START OF FILE state.js ---
+
 // Global state: Defines and manages the player state and skill data for the simulator.
 
 export const SKILL_POINTS_PER_LEVEL = 4;
@@ -12,6 +14,9 @@ const INITIAL_PLAYER_STATE = {
   skillPointsSpent: 0,
   currentHealth: 50,
   currentHunger: 10,
+  // === CAMBIO: Añadido estado para el daño acumulado ===
+  cumulativeDamage: 0,
+  lastFullSimulationResult:null,
   skillLevelsAssigned: {
     attack: 0, precision: 0, criticalChance: 0, criticalDamages: 0, armor: 0,
     dodge: 0, health: 0, lootChance: 0, hunger: 0,

@@ -137,7 +137,9 @@ export function simulateFullCombatWithFood(foodItem) {
     const INCOMING_DAMAGE_PER_TICK = 10;
     const MAX_TICKS = 2000;
     fullLog.push(`--- Simulation started with ${foodItem.name} (+${healthPerFood} HP per hunger point) ---`);
+    
     while (ticksSurvived < MAX_TICKS) {
+        // La lógica de comer se ejecuta primero
         if (tempCurrentHealth <= INCOMING_DAMAGE_PER_TICK && tempCurrentHunger > 0 && healthPerFood > 0) {
             fullLog.push(`<strong>CRITICAL HEALTH!</strong> HP at ${tempCurrentHealth.toFixed(1)}. Attempting to eat.`);
             while (tempCurrentHunger > 0 && tempCurrentHealth <= INCOMING_DAMAGE_PER_TICK) {
@@ -151,23 +153,37 @@ export function simulateFullCombatWithFood(foodItem) {
                 fullLog.push(`<strong>ATE ${foodItem.name.toUpperCase()}!</strong> Healed for ${healthPerFood}. HP: ${healthBeforeHeal.toFixed(1)} -> ${tempCurrentHealth.toFixed(1)}. Hunger left: ${tempCurrentHunger}.`);
             }
         }
-        if (tempCurrentHealth <= 0) {
-            fullLog.push(`--- COMBAT ENDED: Player defeated. Not enough health to continue. ---`);
+        
+        // === CAMBIO CRÍTICO: VERIFICAR SI EL JUGADOR PUEDE ATACAR ===
+        // Un ataque cuesta 10 de vida base. Si no tiene al menos 10, no puede atacar.
+        if (tempCurrentHealth < INCOMING_DAMAGE_PER_TICK) {
+            fullLog.push(`--- COMBAT ENDED: Not enough health to perform another attack (requires ${INCOMING_DAMAGE_PER_TICK} HP, has ${tempCurrentHealth.toFixed(1)}). ---`);
             break;
         }
+
         const tickResult = simulateCombatTick();
         const healthLostThisTick = tickResult.healthLost;
+        
         tempCurrentHealth -= healthLostThisTick;
         totalDamageDealt += tickResult.finalDamageDealt;
         ticksSurvived++;
+
         const healthAfterDamage = tempCurrentHealth;
         let logEntry = `--- Hit ${ticksSurvived} | HP left: ${Math.max(0, healthAfterDamage).toFixed(1)} | Hunger: ${tempCurrentHunger} ---`;
         fullLog.push(logEntry);
         fullLog.push(...tickResult.log);
+        
+        // Si la vida cae a 0 o menos después del golpe, el combate termina inmediatamente.
+        if (tempCurrentHealth <= 0) {
+             fullLog.push(`--- COMBAT ENDED: Player defeated. ---`);
+             break;
+        }
     }
+
     if (ticksSurvived >= MAX_TICKS) {
         fullLog.push("--- SIMULATION STOPPED: Maximum number of hits reached. ---");
     }
+    
     return {
         totalDamageDealt: parseFloat(totalDamageDealt.toFixed(1)),
         ticksSurvived,
