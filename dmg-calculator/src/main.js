@@ -18,7 +18,9 @@ import {
   simulateCombatTick,
   calculateCumulativeSkillCost,
   simulateFullCombatWithFood,
-  calculateStatDetails
+  calculateStatDetails,
+  runMonteCarloSimulation,
+  resetGlobalSkillRandomFactor
 } from './calculator.js';
 import {
   ui,
@@ -29,7 +31,6 @@ import {
   handleStatMouseEnter,
   handleStatMouseLeave,
   applyButtonTransform,
-  renderSimulationLog,
   handleProgressBlockMouseEnter,
   handleProgressBlockMouseLeave,
   showFoodSelectionModal,
@@ -37,11 +38,32 @@ import {
   formatSkillValue,
   showConfirmationModal,
   renderApiLoader,
-  showActionFeedbackTooltip
+  showActionFeedbackTooltip,
+  updateBuildInfo,
+  showComparisonResults,
+  showSingleAnalysisResults
 } from './ui.js';
 
 // === PRESET HELPERS ===
 const PRESETS_STORAGE_KEY = 'playerBuildPresets';
+const SIMULATION_ITERATIONS = 1000; // Number of Monte Carlo simulation runs
+
+// === ADVANCED SIMULATION STATE ===
+let buildComparisonState = {
+  buildA: null, // Current build (always available)
+  buildB: null, // Loaded preset for comparison
+  foodItem: null,
+  simulationRuns: 1000,
+  renderAllUIWrapper: null // Wrapper function for renderAllUI
+};
+
+// Helper function to call renderAllUI with build info updates
+function renderAllUIWithBuildInfo() {
+  renderAllUI();
+  if (buildComparisonState.renderAllUIWrapper) {
+    buildComparisonState.renderAllUIWrapper();
+  }
+}
 
 /**
  * Obtiene los presets del localStorage de forma segura.
@@ -113,7 +135,7 @@ function handleSkillButtonClick(button) {
         playerState.currentHunger = maxHungerAfter;
     }
   }
-  renderAllUI();
+  renderAllUIWithBuildInfo();
 }
 
 function handleLevelButtonClick(event) {
@@ -138,7 +160,7 @@ function handleLevelButtonClick(event) {
       playerState.skillPointsAvailable = newTotalPoints;
     }
   }
-  renderAllUI();
+  renderAllUIWithBuildInfo();
 }
 
 function handleInventoryItemClick(event) {
@@ -171,7 +193,7 @@ function handleConsumeFood(foodData) {
   const healthRestored = foodData.flatStats.healthRegen || 0;
   playerState.currentHunger -= 1;
   playerState.currentHealth += healthRestored;
-  renderAllUI();
+  renderAllUIWithBuildInfo();
 }
 
 function handleResetGame() {
@@ -183,9 +205,7 @@ function handleResetGame() {
   playerState.currentHealth = maxHealth;
   playerState.currentHunger = maxHunger;
 
-  if (ui.simulationLog) {
-    ui.simulationLog.innerHTML = 'Simulation results will appear here.';
-  }
+      // Removed simulation log clearing - no longer needed
 
   renderApiLoader();
   ui.loadFromApiBtn.addEventListener('click', handleLoadFromAPI);
@@ -195,7 +215,7 @@ function handleResetGame() {
     avatarImg.src = 'public/images/items/avatar.png';
   }
   
-  renderAllUI();
+  renderAllUIWithBuildInfo();
   applyButtonTransform(ui.resetBtn);
 }
 
@@ -229,7 +249,7 @@ function handleEquipItem() {
       }
   });
   hideItemConfigPanel();
-  renderAllUI();
+  renderAllUIWithBuildInfo();
 }
 
 function handleUnequipItem(event) {
@@ -239,7 +259,7 @@ function handleUnequipItem(event) {
     const slot = slotElement.dataset.slot;
     if (slot && playerState.equippedItems[slot]) {
         playerState.equippedItems[slot] = null;
-        renderAllUI();
+        renderAllUIWithBuildInfo();
     }
 }
 
@@ -283,7 +303,7 @@ function handleBuffButtonClick(event) {
         playerState.activeBuffs[buffType] = buffObject;
     }
   }
-  renderAllUI();
+  renderAllUIWithBuildInfo();
 }
 
 function handleDamageSimulation() {
@@ -291,12 +311,22 @@ function handleDamageSimulation() {
       console.log("Cannot simulate, character has no health.");
       return;
   }
+  
+  // Reset random factor for this simulation
+  resetGlobalSkillRandomFactor();
+  
   const simulationResult = simulateCombatTick();
   playerState.currentHealth = Math.max(0, playerState.currentHealth - simulationResult.healthLost);
   playerState.cumulativeDamage += simulationResult.finalDamageDealt;
-  renderSimulationLog(simulationResult);
+  
+  // Update the single hit damage display
+  const cumulativeDamageDisplay = document.getElementById('cumulative-damage-display');
+  if (cumulativeDamageDisplay) {
+    cumulativeDamageDisplay.textContent = playerState.cumulativeDamage.toFixed(1);
+  }
+  
   applyButtonTransform(ui.simulateBtn);
-  renderAllUI();
+  renderAllUIWithBuildInfo();
 }
 
 function handleFullCombatModalOpening() {
@@ -304,6 +334,29 @@ function handleFullCombatModalOpening() {
       console.log("Cannot simulate, character has no health.");
       return;
   }
+  
+  // Pre-select the food item from the simple config
+  const selectedFoodCode = document.getElementById('food-selection-simple')?.value || 'steak';
+  const foodItem = skillsData.skills[selectedFoodCode];
+  
+  if (foodItem) {
+    // Update the modal to show the selected food item
+    const modalFoodOptions = ui.modal.foodOptions;
+    modalFoodOptions.innerHTML = '';
+    
+    const foodItemElement = document.createElement('div');
+    foodItemElement.className = 'modal-food-item selected';
+    foodItemElement.dataset.code = selectedFoodCode;
+    foodItemElement.innerHTML = `
+      <img src="public/images/items/${selectedFoodCode}.png" alt="${formatCodeToName(selectedFoodCode)}">
+      <span>${formatCodeToName(selectedFoodCode)}</span>
+    `;
+    modalFoodOptions.appendChild(foodItemElement);
+    
+    // Enable the start button
+    ui.modal.startBtn.disabled = false;
+  }
+  
   showFoodSelectionModal();
   applyButtonTransform(ui.simulateFullBtn);
 }
@@ -316,23 +369,48 @@ function formatCodeToName(code) {
 function startFullCombatWithFood() {
   const selectedItemElement = ui.modal.foodOptions.querySelector('.selected');
   if (!selectedItemElement) return;
+  
   const itemCode = selectedItemElement.dataset.code;
   const foodItem = skillsData.skills[itemCode];
-  const fullResult = simulateFullCombatWithFood({ ...foodItem, name: formatCodeToName(itemCode) });
   
-  playerState.currentHealth = fullResult.finalHealth;
-  playerState.currentHunger = fullResult.finalHunger;
+  // Show loading state
+  const startBtn = ui.modal.startBtn;
+  const originalText = startBtn.textContent;
+  startBtn.textContent = 'Running Analysis...';
+  startBtn.disabled = true;
   
-  const summary = `Survived ${fullResult.ticksSurvived} hits using ${formatCodeToName(itemCode)}, dealing ${fullResult.totalDamageDealt} total damage.`;
-  playerState.lastSimulationSummary = summary;
-  playerState.lastFullSimulationResult = {
-    totalDamage: fullResult.totalDamageDealt,
-    ticksSurvived: fullResult.ticksSurvived
-  };
-  
-  renderSimulationLog(fullResult, summary);
-  hideFoodSelectionModal();
-  renderAllUI(); 
+  setTimeout(() => {
+    const stateSnapshot = JSON.parse(JSON.stringify(playerState));
+    const foodItemData = { ...foodItem, name: formatCodeToName(itemCode) };
+    
+    // Use the selected number of runs from the simple config
+    const runs = parseInt(document.getElementById('simulation-runs-simple')?.value || SIMULATION_ITERATIONS);
+    const simulationAnalysis = runMonteCarloSimulation(runs, stateSnapshot, foodItemData);
+
+    playerState.lastFullSimulationResult = simulationAnalysis;
+    
+    const { damageStats, ticksStats, endReasonStats, randomFactor } = simulationAnalysis;
+    const avgDamagePerHit = ticksStats.mean > 0 ? (damageStats.mean / ticksStats.mean).toFixed(1) : 0;
+    const damageConsistency = ticksStats.stdDev > 0 ? ((damageStats.stdDev / damageStats.mean) * 100).toFixed(1) : 0;
+    
+    // Determine primary limiting factor
+    let primaryLimitingFactor = 'Max Ticks';
+    if (endReasonStats.byHealth > endReasonStats.byWeapon && endReasonStats.byHealth > endReasonStats.byMaxTicks) {
+      primaryLimitingFactor = 'Health';
+    } else if (endReasonStats.byWeapon > endReasonStats.byHealth && endReasonStats.byWeapon > endReasonStats.byMaxTicks) {
+      primaryLimitingFactor = 'Weapon Durability';
+    }
+    
+    // Update the UI with simulation results
+    updateSimulationResults(damageStats, ticksStats, avgDamagePerHit, damageConsistency, primaryLimitingFactor, randomFactor);
+    
+    hideFoodSelectionModal();
+    renderAllUIWithBuildInfo(); 
+    
+    // Restore button state
+    startBtn.textContent = originalText;
+    startBtn.disabled = false;
+  }, 10);
 }
 
 function handleExportBuild() {
@@ -443,7 +521,7 @@ function handleFullRestore() {
   playerState.currentHealth = maxHealth;
   playerState.currentHunger = maxHunger;
   applyButtonTransform(ui.fullRestoreBtn);
-  renderAllUI();
+  renderAllUIWithBuildInfo();
 }
 
 /**
@@ -555,7 +633,7 @@ async function handleLoadPreset(presetName) {
   playerState.currentHealth = maxHealth;
   playerState.currentHunger = maxHunger;
   
-  renderAllUI();
+  renderAllUIWithBuildInfo();
   const loadButton = ui.presetsListContainer.querySelector(`.load-btn[data-preset-name="${presetName}"]`);
   if (loadButton) applyButtonTransform(loadButton);
 }
@@ -641,7 +719,7 @@ async function mapApiDataToPlayerState(apiData) {
     showCancel: false, confirmText: 'OK'
   });
   
-  renderAllUI();
+  renderAllUIWithBuildInfo();
 }
 
 /**
@@ -762,7 +840,10 @@ async function initialize() {
     renderPresetsList();
     ui.loadFromApiBtn.addEventListener('click', handleLoadFromAPI);
 
-    renderAllUI();
+    // Initialize advanced simulation section
+    initializeAdvancedSimulation();
+
+    renderAllUIWithBuildInfo();
 
     loadingOverlay.classList.add('hidden');
     mainContainer.classList.remove('hidden');
@@ -774,6 +855,257 @@ async function initialize() {
     if (spinner) spinner.style.display = 'none';
     if (loadingText) loadingText.innerHTML = `<strong>Error:</strong> Could not load application data.<br>Please try refreshing the page.`;
   }
+}
+
+function updateSimulationResults(damageStats, ticksStats, avgDamagePerHit, damageConsistency, primaryLimitingFactor, randomFactor) {
+  // Update main KPI displays
+  const avgDamageDisplay = document.getElementById('full-sim-avg-damage-display');
+  const avgHitsDisplay = document.getElementById('full-sim-avg-hits-display');
+  const minDamageDisplay = document.getElementById('full-sim-min-damage-display');
+  const maxDamageDisplay = document.getElementById('full-sim-max-damage-display');
+  const minHitsDisplay = document.getElementById('full-sim-min-hits-display');
+  const maxHitsDisplay = document.getElementById('full-sim-max-hits-display');
+  
+  // Update secondary KPI displays
+  const dphDisplay = document.getElementById('full-sim-dph-display');
+  const consistencyDisplay = document.getElementById('full-sim-consistency-display');
+  const endReasonDisplay = document.getElementById('full-sim-end-reason-display');
+  
+  if (avgDamageDisplay) avgDamageDisplay.textContent = damageStats.mean.toFixed(1);
+  if (avgHitsDisplay) avgHitsDisplay.textContent = ticksStats.mean.toFixed(1);
+  if (minDamageDisplay) minDamageDisplay.textContent = damageStats.min.toFixed(1);
+  if (maxDamageDisplay) maxDamageDisplay.textContent = damageStats.max.toFixed(1);
+  if (minHitsDisplay) minHitsDisplay.textContent = ticksStats.min.toFixed(1);
+  if (maxHitsDisplay) maxHitsDisplay.textContent = ticksStats.max.toFixed(1);
+  
+  if (dphDisplay) dphDisplay.textContent = avgDamagePerHit;
+  if (consistencyDisplay) consistencyDisplay.textContent = damageConsistency + '%';
+  if (endReasonDisplay) endReasonDisplay.textContent = primaryLimitingFactor;
+  
+  // Store summary for export
+  playerState.lastSimulationSummary = `
+    Analysis of 1000 cycles with random factor ${randomFactor.toFixed(3)}x:
+    - Avg. Total Damage (TDC): ${damageStats.mean.toFixed(1)}
+    - Avg. Total Hits (THC): ${ticksStats.mean.toFixed(1)}
+    - Avg. Damage per Hit: ${avgDamagePerHit}
+    - Damage Consistency: ${damageConsistency}%
+    - Primary Limiting Factor: ${primaryLimitingFactor}
+  `;
+}
+
+// === ADVANCED SIMULATION FUNCTIONS ===
+
+/**
+ * Gets food item data by code
+ */
+function getFoodItemByCode(foodCode) {
+  const foodItems = {
+    bread: { flatStats: { healthRegen: 5 } },
+    steak: { flatStats: { healthRegen: 10 } },
+    cookedFish: { flatStats: { healthRegen: 15 } }
+  };
+  return foodItems[foodCode] || foodItems.steak;
+}
+
+/**
+ * Creates a snapshot of the current player state
+ */
+function createPlayerStateSnapshot() {
+  return {
+    playerLevel: playerState.playerLevel,
+    skillLevelsAssigned: JSON.parse(JSON.stringify(playerState.skillLevelsAssigned)),
+    equippedItems: JSON.parse(JSON.stringify(playerState.equippedItems)),
+    activeBuffs: JSON.parse(JSON.stringify(playerState.activeBuffs)),
+    currentHealth: playerState.currentHealth,
+    currentHunger: playerState.currentHunger
+  };
+}
+
+/**
+ * Applies a player state snapshot
+ */
+function applyPlayerStateSnapshot(snapshot) {
+  playerState.playerLevel = snapshot.playerLevel;
+  playerState.skillLevelsAssigned = JSON.parse(JSON.stringify(snapshot.skillLevelsAssigned));
+  playerState.equippedItems = JSON.parse(JSON.stringify(snapshot.equippedItems));
+  playerState.activeBuffs = JSON.parse(JSON.stringify(snapshot.activeBuffs));
+  playerState.currentHealth = snapshot.currentHealth;
+  playerState.currentHunger = snapshot.currentHunger;
+  
+  // Recalculate skill points
+  const totalPointsForLevel = playerState.playerLevel * SKILL_POINTS_PER_LEVEL;
+  let spentPoints = 0;
+  for (const skillCode in playerState.skillLevelsAssigned) {
+    spentPoints += calculateCumulativeSkillCost(skillCode, playerState.skillLevelsAssigned[skillCode]);
+  }
+  playerState.skillPointsSpent = spentPoints;
+  playerState.skillPointsAvailable = totalPointsForLevel - spentPoints;
+}
+
+/**
+ * Handles loading a preset into build comparison slot
+ */
+async function handleLoadBuildForComparison(buildSlot) {
+  const presets = getPresetsFromStorage();
+  if (presets.length === 0) {
+    showConfirmationModal({
+      title: 'No Presets Available',
+      text: 'You need to save at least one preset before comparing builds.',
+      showCancel: false,
+      confirmText: 'OK'
+    });
+    return;
+  }
+
+  // Create a proper preset selection modal with clickable options
+  const presetOptions = presets.map((preset, index) => 
+    `<div class="preset-option" data-preset-index="${index}" onclick="window.selectPresetForComparison(${index}, '${buildSlot}')">
+      <span class="preset-name">${preset.name}</span>
+      <span class="preset-level">Level ${preset.stateSnapshot.playerLevel}</span>
+    </div>`
+  ).join('');
+
+  const modalContent = `
+    <div class="preset-selection-modal">
+      <h4>Select Preset for Build ${buildSlot}</h4>
+      <div class="preset-options">
+        ${presetOptions}
+      </div>
+    </div>
+  `;
+
+  // Store presets globally for selection
+  window.availablePresetsForComparison = presets;
+  window.currentBuildSlotForComparison = buildSlot;
+  
+  // Show modal and wait for selection
+  const modal = await showConfirmationModal({
+    title: 'Select Preset',
+    text: modalContent,
+    confirmText: 'Cancel',
+    showCancel: false
+  });
+
+  // The selection will be handled by the onclick function
+}
+
+// Global function to handle preset selection
+window.selectPresetForComparison = function(presetIndex, buildSlot) {
+  const presets = window.availablePresetsForComparison;
+  if (presets && presets[presetIndex]) {
+    const selectedPreset = presets[presetIndex];
+    
+    if (buildSlot === 'A') {
+      buildComparisonState.buildA = selectedPreset;
+      updateBuildInfo('A', selectedPreset);
+    } else if (buildSlot === 'B') {
+      buildComparisonState.buildB = selectedPreset;
+      updateBuildInfo('B', selectedPreset);
+    }
+    
+    // Enable compare button if both builds are ready
+    if (buildComparisonState.buildA && buildComparisonState.buildB) {
+      ui.compareBuildsBtn.disabled = false;
+    }
+    
+    // Close the modal
+    hideConfirmationModal();
+  }
+};
+
+/**
+ * Handles build comparison simulation
+ */
+async function handleCompareBuilds() {
+  if (!buildComparisonState.buildA || !buildComparisonState.buildB) {
+    showConfirmationModal({
+      title: 'Builds Not Ready',
+      text: 'Please ensure both builds are loaded before comparing.',
+      showCancel: false,
+      confirmText: 'OK'
+    });
+    return;
+  }
+
+  const runs = parseInt(ui.simulationRunsSelect.value);
+  const foodCode = ui.foodSelectionAdvanced.value;
+  const foodItem = getFoodItemByCode(foodCode);
+
+  // Disable button and show loading
+  ui.compareBuildsBtn.disabled = true;
+  ui.compareBuildsBtn.textContent = '🔄 Running Simulations...';
+
+  try {
+    // Simulate Build A
+    const originalState = createPlayerStateSnapshot();
+    let buildAResults;
+    
+    if (buildComparisonState.buildA.stateSnapshot) {
+      // Build A is a loaded preset
+      applyPlayerStateSnapshot(buildComparisonState.buildA.stateSnapshot);
+      buildAResults = runMonteCarloSimulation(runs, createPlayerStateSnapshot(), foodItem);
+    } else {
+      // Build A is the current build
+      buildAResults = runMonteCarloSimulation(runs, createPlayerStateSnapshot(), foodItem);
+    }
+
+    // Simulate Build B
+    applyPlayerStateSnapshot(buildComparisonState.buildB.stateSnapshot);
+    const buildBResults = runMonteCarloSimulation(runs, createPlayerStateSnapshot(), foodItem);
+    
+    // Restore original state
+    applyPlayerStateSnapshot(originalState);
+    renderAllUIWithBuildInfo();
+
+    // Show results
+    showComparisonResults(buildAResults, buildBResults);
+
+  } catch (error) {
+    console.error('Error during build comparison:', error);
+    showConfirmationModal({
+      title: 'Simulation Error',
+      text: 'An error occurred during the comparison simulation.',
+      showCancel: false,
+      confirmText: 'OK'
+    });
+  } finally {
+    // Re-enable button
+    ui.compareBuildsBtn.disabled = false;
+    ui.compareBuildsBtn.textContent = '🚀 Compare Builds';
+  }
+}
+
+
+
+/**
+ * Initializes advanced simulation section
+ */
+function initializeAdvancedSimulation() {
+  // Initialize build comparison state
+  buildComparisonState.buildA = null;
+  buildComparisonState.buildB = null;
+
+  // Add event listeners
+  ui.loadBuildABtn.addEventListener('click', () => {
+    handleLoadBuildForComparison('A');
+    applyButtonTransform(ui.loadBuildABtn);
+  });
+
+  ui.loadBuildBBtn.addEventListener('click', () => {
+    handleLoadBuildForComparison('B');
+    applyButtonTransform(ui.loadBuildBBtn);
+  });
+  ui.compareBuildsBtn.addEventListener('click', handleCompareBuilds);
+
+  // Update build info when player state changes
+  // Create a wrapper function that includes build info updates
+  buildComparisonState.renderAllUIWrapper = function() {
+    // Only update Build A if it's the current build (not a preset)
+    if (buildComparisonState.buildA && !buildComparisonState.buildA.stateSnapshot) {
+      buildComparisonState.buildA = createPlayerStateSnapshot();
+      updateBuildInfo('A', null, true);
+    }
+  };
 }
 
 document.addEventListener('DOMContentLoaded', initialize);

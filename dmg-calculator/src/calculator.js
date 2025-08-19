@@ -2,6 +2,29 @@
 
 import { skillsData, playerState, MIN_SKILL_LEVEL, MAX_SKILL_LEVEL } from './state.js';
 
+// Global random factor for all skills (0.9x - 1.1x)
+// This factor is generated once and applied to all skill calculations for consistency
+let globalSkillRandomFactor = null;
+
+/**
+ * Generates or returns the global random factor for skill calculations.
+ * This factor is applied to ALL skills to simulate realistic variance.
+ * @returns {number} Random factor between 0.9 and 1.1
+ */
+function getGlobalSkillRandomFactor() {
+    if (globalSkillRandomFactor === null) {
+        globalSkillRandomFactor = 0.9 + (Math.random() * 0.2); // 0.9 to 1.1
+    }
+    return globalSkillRandomFactor;
+}
+
+/**
+ * Resets the global random factor (useful for new simulations)
+ */
+export function resetGlobalSkillRandomFactor() {
+    globalSkillRandomFactor = null;
+}
+
 export function getSkillData(skillCode, level) {
   if (!skillsData || !skillsData.skills || !skillsData.skills[skillCode]) {
     return null;
@@ -27,7 +50,7 @@ export function calculateCumulativeSkillCost(skillCode, level) {
 export function calculateStatDetails(skillCode) {
     // Aunque ya no es la causa del error principal, esta guarda es buena práctica.
     if (!skillsData || !skillsData.skills) {
-        return { skillValue: 0, equipmentValue: 0, equipmentItems: [], ammoPercent: 0, buffPercent: 0, total: 0 };
+        return { skillValue: 0, equipmentValue: 0, equipmentItems: [], ammoPercent: 0, buffPercent: 0, total: 0, randomFactor: 1 };
     }
 
     const currentSkillLevel = playerState.skillLevelsAssigned[skillCode];
@@ -39,6 +62,11 @@ export function calculateStatDetails(skillCode) {
     let ammoPercent = 0;
     let buffPercent = 0;
     let total = skillValue;
+    
+    // Apply global random factor to skill value
+    const randomFactor = getGlobalSkillRandomFactor();
+    const adjustedSkillValue = skillValue * randomFactor;
+    total = adjustedSkillValue;
 
     switch (skillCode) {
         case 'attack':
@@ -49,25 +77,25 @@ export function calculateStatDetails(skillCode) {
             // CAMBIO: Añadido encadenamiento opcional `?.` para los buffs
             ammoPercent = activeBuffs.ammo?.stats?.percentAttack || 0;
             buffPercent = activeBuffs.consumable?.stats?.percentAttack || 0;
-            total = (skillValue + equipmentValue) * (1 + (ammoPercent / 100) + (buffPercent / 100));
+            total = (adjustedSkillValue + equipmentValue) * (1 + (ammoPercent / 100) + (buffPercent / 100));
             break;
         case 'precision':
             // CAMBIO: Añadido encadenamiento opcional `?.` para manejar gloves=null
             equipmentValue = equippedItems.gloves?.stats?.precision || 0;
             if (equippedItems.gloves) equipmentItems.push(equippedItems.gloves);
-            total = skillValue + equipmentValue;
+            total = adjustedSkillValue + equipmentValue;
             break;
         case 'criticalChance':
             // CAMBIO: Añadido encadenamiento opcional `?.` para manejar weapon=null
             equipmentValue = (equippedItems.weapon?.stats?.criticalChance || 0);
             if (equippedItems.weapon) equipmentItems.push(equippedItems.weapon);
-            total = skillValue + equipmentValue;
+            total = adjustedSkillValue + equipmentValue;
             break;
         case 'criticalDamages':
             // CAMBIO: Añadido encadenamiento opcional `?.` para manejar helmet=null
             equipmentValue = equippedItems.helmet?.stats?.criticalDamages || 0;
             if (equippedItems.helmet) equipmentItems.push(equippedItems.helmet);
-            total = skillValue + equipmentValue;
+            total = adjustedSkillValue + equipmentValue;
             break;
         case 'armor':
             // CAMBIO: Añadido encadenamiento opcional `?.` para chest y pants
@@ -76,16 +104,16 @@ export function calculateStatDetails(skillCode) {
             equipmentValue = chestArmor + pantsArmor;
             if (equippedItems.chest) equipmentItems.push(equippedItems.chest);
             if (equippedItems.pants) equipmentItems.push(equippedItems.pants);
-            total = skillValue + equipmentValue;
+            total = adjustedSkillValue + equipmentValue;
             break;
         case 'dodge':
             // CAMBIO: Añadido encadenamiento opcional `?.` para boots
             equipmentValue = equippedItems.boots?.stats?.dodge || 0;
             if (equippedItems.boots) equipmentItems.push(equippedItems.boots);
-            total = skillValue + equipmentValue;
+            total = adjustedSkillValue + equipmentValue;
             break;
         case 'lootChance':
-            total = skillValue;
+            total = adjustedSkillValue;
             break;
     }
     return {
@@ -94,102 +122,205 @@ export function calculateStatDetails(skillCode) {
         equipmentItems,
         ammoPercent,
         buffPercent,
-        total: parseFloat(total.toFixed(1))
+        total: parseFloat(total.toFixed(1)),
+        randomFactor: parseFloat(randomFactor.toFixed(3))
     };
 }
 
-export function simulateFullCombat() {
+/**
+ * Runs a single, self-contained, and lightweight combat simulation.
+ * Optimized for speed by not generating logs. Now includes durability tracking.
+ * @param {object} initialPlayerState - A snapshot of the player's state before combat.
+ * @param {object} foodItem - The food item to be used during simulation.
+ * @returns {object} The results of the simulation run.
+ */
+function runSingleLightweightSimulation(initialPlayerState, foodItem) {
     let totalDamageDealt = 0;
     let ticksSurvived = 0;
-    let fullLog = [];
-    let tempCurrentHealth = playerState.currentHealth;
-    const MAX_TICKS = 1000;
-    while (tempCurrentHealth > 0 && ticksSurvived < MAX_TICKS) {
-        const tickResult = simulateCombatTick();
-        tempCurrentHealth -= tickResult.healthLost;
-        if (tempCurrentHealth >= 0 || (tempCurrentHealth < 0 && ticksSurvived === 0)) {
-            totalDamageDealt += tickResult.finalDamageDealt;
+    let endReason = 'max_ticks'; // Default reason if the loop hits the limit
+
+    // --- START: Durability & Resource Tracking ---
+    let tempCurrentHealth = initialPlayerState.currentHealth;
+    let tempCurrentHunger = initialPlayerState.currentHunger;
+    let tempDurability = {
+        weapon: 100,
+        helmet: 100,
+        chest: 100,
+        pants: 100,
+        boots: 100,
+        gloves: 100,
+    };
+    // --- END: Durability & Resource Tracking ---
+
+    const healthPerFood = foodItem.flatStats.healthRegen || 0;
+    const maxHealthFromSkills = getSkillData('health', initialPlayerState.skillLevelsAssigned.health)?.value || 50;
+    const INCOMING_DAMAGE_PER_TICK = 10;
+    const MAX_TICKS = 5000;
+
+    while (ticksSurvived < MAX_TICKS) {
+        // Condition 1: Check if weapon is broken BEFORE the next hit
+        if (tempDurability.weapon <= 0) {
+            endReason = 'weapon_broken';
+            break;
         }
+
+        // Heal logic (remains the same)
+        if (tempCurrentHealth <= INCOMING_DAMAGE_PER_TICK && tempCurrentHunger > 0 && healthPerFood > 0) {
+            while (tempCurrentHunger > 0 && tempCurrentHealth <= INCOMING_DAMAGE_PER_TICK) {
+                if (tempCurrentHealth >= maxHealthFromSkills) break;
+                tempCurrentHunger--;
+                tempCurrentHealth += healthPerFood;
+            }
+        }
+        
+        // Condition 2: Check for enough health for the next hit
+        if (tempCurrentHealth < INCOMING_DAMAGE_PER_TICK) {
+            endReason = 'no_health';
+            break;
+        }
+
+        const tickResult = simulateCombatTick();
+        
+        tempCurrentHealth -= tickResult.healthLost;
+        totalDamageDealt += tickResult.finalDamageDealt;
         ticksSurvived++;
-        const healthAfterTick = Math.max(0, tempCurrentHealth).toFixed(1);
-        fullLog.push(`--- Hit ${ticksSurvived} (Health: ${healthAfterTick}) ---`);
-        fullLog.push(...tickResult.log);
+
+        // --- START: Durability Consumption Logic ---
+        tempDurability.weapon -= 1; // Weapon durability is always consumed.
+
+        if (!tickResult.wasDodge) {
+            // If the hit was not dodged, all other equipment also loses durability.
+            if (initialPlayerState.equippedItems.helmet) tempDurability.helmet -= 1;
+            if (initialPlayerState.equippedItems.chest) tempDurability.chest -= 1;
+            if (initialPlayerState.equippedItems.pants) tempDurability.pants -= 1;
+            if (initialPlayerState.equippedItems.boots) tempDurability.boots -= 1;
+            if (initialPlayerState.equippedItems.gloves) tempDurability.gloves -= 1;
+        }
+        // --- END: Durability Consumption Logic ---
+
+        // Condition 3: Check if health dropped to zero AFTER the hit
+        if (tempCurrentHealth <= 0) {
+             endReason = 'no_health';
+             break;
+        }
     }
-    if (ticksSurvived >= MAX_TICKS) {
-        fullLog.push("--- SIMULATION STOPPED: Maximum number of hits reached. ---");
-    }
+    
     return {
-        totalDamageDealt: parseFloat(totalDamageDealt.toFixed(1)),
+        totalDamageDealt,
         ticksSurvived,
-        log: fullLog,
-        finalHealth: Math.max(0, tempCurrentHealth)
+        endReason // Return why the simulation stopped
     };
 }
+
+/**
+ * Calculates basic statistics from an array of numbers.
+ * @param {Array} data - Array of numeric values.
+ * @returns {object} Object containing mean, min, max, and standard deviation.
+ */
+function calculateStatistics(data) {
+    if (data.length === 0) return { mean: 0, min: 0, max: 0, stdDev: 0 };
+    
+    const sum = data.reduce((acc, val) => acc + val, 0);
+    const mean = sum / data.length;
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    
+    const variance = data.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / data.length;
+    const stdDev = Math.sqrt(variance);
+    
+    return {
+        mean: parseFloat(mean.toFixed(1)),
+        min: parseFloat(min.toFixed(1)),
+        max: parseFloat(max.toFixed(1)),
+        stdDev: parseFloat(stdDev.toFixed(1))
+    };
+}
+
+/**
+ * Performs a Monte Carlo simulation focusing on multiple KPIs.
+ * @param {number} iterations - The number of simulations to run.
+ * @param {object} initialPlayerState - A snapshot of the player's state.
+ * @param {object} foodItem - The food item to use.
+ * @returns {object} An object containing the statistical analysis of all KPIs.
+ */
+export function runMonteCarloSimulation(iterations, initialPlayerState, foodItem) {
+    // Reset the global random factor for this simulation
+    resetGlobalSkillRandomFactor();
+    
+    const damageResults = [];
+    const ticksResults = [];
+    const endReasonCounts = { no_health: 0, weapon_broken: 0, max_ticks: 0 };
+    
+    for (let i = 0; i < iterations; i++) {
+        const result = runSingleLightweightSimulation(initialPlayerState, foodItem);
+        damageResults.push(result.totalDamageDealt);
+        ticksResults.push(result.ticksSurvived);
+        if (endReasonCounts[result.endReason] !== undefined) {
+            endReasonCounts[result.endReason]++;
+        }
+    }
+
+    return {
+        damageStats: calculateStatistics(damageResults),
+        ticksStats: calculateStatistics(ticksResults),
+        endReasonStats: {
+            byHealth: (endReasonCounts.no_health / iterations) * 100,
+            byWeapon: (endReasonCounts.weapon_broken / iterations) * 100,
+            byMaxTicks: (endReasonCounts.max_ticks / iterations) * 100,
+        },
+        randomFactor: getGlobalSkillRandomFactor()
+    };
+}
+
+// Removed simulateFullCombat function - no longer needed
 
 export function simulateFullCombatWithFood(foodItem) {
+    // Reset the global random factor for this simulation
+    resetGlobalSkillRandomFactor();
+    
     let totalDamageDealt = 0;
     let ticksSurvived = 0;
-    let fullLog = [];
     let tempCurrentHealth = playerState.currentHealth;
     let tempCurrentHunger = playerState.currentHunger;
     const healthPerFood = foodItem.flatStats.healthRegen || 0;
     const maxHealthFromSkills = getSkillData('health', playerState.skillLevelsAssigned.health)?.value || 50;
     const INCOMING_DAMAGE_PER_TICK = 10;
     const MAX_TICKS = 2000;
-    fullLog.push(`--- Simulation started with ${foodItem.name} (+${healthPerFood} HP per hunger point) ---`);
     
     while (ticksSurvived < MAX_TICKS) {
-        // La lógica de comer se ejecuta primero
+        // Healing logic
         if (tempCurrentHealth <= INCOMING_DAMAGE_PER_TICK && tempCurrentHunger > 0 && healthPerFood > 0) {
-            fullLog.push(`<strong>CRITICAL HEALTH!</strong> HP at ${tempCurrentHealth.toFixed(1)}. Attempting to eat.`);
             while (tempCurrentHunger > 0 && tempCurrentHealth <= INCOMING_DAMAGE_PER_TICK) {
                 if (tempCurrentHealth >= maxHealthFromSkills) {
-                    fullLog.push(`Stopped eating: health is full or overcharged (${tempCurrentHealth.toFixed(1)} / ${maxHealthFromSkills}).`);
                     break;
                 }
                 tempCurrentHunger--;
-                const healthBeforeHeal = tempCurrentHealth;
                 tempCurrentHealth += healthPerFood;
-                fullLog.push(`<strong>ATE ${foodItem.name.toUpperCase()}!</strong> Healed for ${healthPerFood}. HP: ${healthBeforeHeal.toFixed(1)} -> ${tempCurrentHealth.toFixed(1)}. Hunger left: ${tempCurrentHunger}.`);
             }
         }
         
-        // === CAMBIO CRÍTICO: VERIFICAR SI EL JUGADOR PUEDE ATACAR ===
-        // Un ataque cuesta 10 de vida base. Si no tiene al menos 10, no puede atacar.
+        // Check if player can attack
         if (tempCurrentHealth < INCOMING_DAMAGE_PER_TICK) {
-            fullLog.push(`--- COMBAT ENDED: Not enough health to perform another attack (requires ${INCOMING_DAMAGE_PER_TICK} HP, has ${tempCurrentHealth.toFixed(1)}). ---`);
             break;
         }
 
         const tickResult = simulateCombatTick();
-        const healthLostThisTick = tickResult.healthLost;
-        
-        tempCurrentHealth -= healthLostThisTick;
+        tempCurrentHealth -= tickResult.healthLost;
         totalDamageDealt += tickResult.finalDamageDealt;
         ticksSurvived++;
-
-        const healthAfterDamage = tempCurrentHealth;
-        let logEntry = `--- Hit ${ticksSurvived} | HP left: ${Math.max(0, healthAfterDamage).toFixed(1)} | Hunger: ${tempCurrentHunger} ---`;
-        fullLog.push(logEntry);
-        fullLog.push(...tickResult.log);
         
-        // Si la vida cae a 0 o menos después del golpe, el combate termina inmediatamente.
+        // If health drops to zero or below, combat ends immediately
         if (tempCurrentHealth <= 0) {
-             fullLog.push(`--- COMBAT ENDED: Player defeated. ---`);
              break;
         }
-    }
-
-    if (ticksSurvived >= MAX_TICKS) {
-        fullLog.push("--- SIMULATION STOPPED: Maximum number of hits reached. ---");
     }
     
     return {
         totalDamageDealt: parseFloat(totalDamageDealt.toFixed(1)),
         ticksSurvived,
-        log: fullLog,
         finalHealth: Math.max(0, tempCurrentHealth),
-        finalHunger: tempCurrentHunger 
+        finalHunger: tempCurrentHunger,
+        randomFactor: getGlobalSkillRandomFactor()
     };
 }
 
@@ -200,41 +331,40 @@ export function simulateCombatTick() {
   const critDamageStats = calculateStatDetails('criticalDamages');
   const armorStats = calculateStatDetails('armor');
   const dodgeStats = calculateStatDetails('dodge');
-  let log = [];
+  
   let finalDamageDealt = 0;
   let healthLost = 10;
+  
+  // Dodge check
   const wasDodge = Math.random() * 100 < dodgeStats.total;
   if (wasDodge) {
       healthLost = 0;
-      log.push('<strong>DODGE!</strong> No health was lost.');
   } else {
       const damageReduction = healthLost * (armorStats.total / 100);
       healthLost -= damageReduction;
-      log.push(`<strong>ARMOR</strong> reduced health loss by ${damageReduction.toFixed(1)}.`);
   }
+  
+  // Base damage calculation
   let baseDamage = attackStats.total;
-  log.push(`Base damage potential is ${baseDamage.toFixed(1)}.`);
+  
+  // Hit/Miss check
   const wasHit = Math.random() * 100 < precisionStats.total;
   if (!wasHit) {
       baseDamage /= 2;
-      log.push('<strong>MISS!</strong> Damage was halved.');
-  } else {
-      log.push('<strong>HIT!</strong> Full damage potential.');
   }
+  
+  // Critical hit check
   const wasCritical = Math.random() * 100 < critChanceStats.total;
   if (wasCritical) {
       const critMultiplier = 1 + (critDamageStats.total / 100);
-      const criticalDamageBonus = baseDamage * (critDamageStats.total / 100);
       finalDamageDealt = baseDamage * critMultiplier;
-      log.push(`<strong>CRITICAL HIT!</strong> Damage multiplied by ${critMultiplier.toFixed(2)} (+${criticalDamageBonus.toFixed(1)}).`);
   } else {
       finalDamageDealt = baseDamage;
-      log.push('Normal hit.');
   }
+  
   return {
       finalDamageDealt: parseFloat(finalDamageDealt.toFixed(1)),
       healthLost: parseFloat(healthLost.toFixed(1)),
-      log,
       wasCritical,
       wasHit,
       wasDodge,

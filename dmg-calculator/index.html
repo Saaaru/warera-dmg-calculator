@@ -7,6 +7,7 @@
   <title>Fight Skills Layout</title>
   <link rel="stylesheet" href="public/styles/style.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -72,9 +73,10 @@
       <div class="skill" data-skill="hunger"><div class="skill-header"><div class="skill-info"><span class="skill-icon">🍗</span><span class="skill-name">Hunger</span><span class="skill-value" id="value-hunger"></span></div><div class="skill-buttons"><button class="skill-btn btn-minus" data-skill="hunger" data-action="minus"> − </button><button class="skill-btn btn-plus" data-skill="hunger" data-action="plus"> + </button></div></div><div class="skill-description">Limit of food consumption.</div><div class="progress-bar" id="progress-hunger"><div class="progress-block"></div><div class="progress-block"></div><div class="progress-block"></div><div class="progress-block"></div><div class="progress-block"></div><div class="progress-block"></div><div class="progress-block"></div><div class="progress-block"></div><div class="progress-block"></div><div class="progress-block"></div></div></div>
     </div>
 
-    <!-- COLUMNA 2: CENTRO -->
+    <!-- COLUMNA CENTRAL: CONTENEDOR DE TODAS LAS SECCIONES -->
     <div class="center-column">
-      <div class="character-section">
+      <!-- SECCIÓN 1: CARGA DE DATOS -->
+      <div class="center-section api-load-section">
         <div id="api-load-section" class="config-panel">
           <h4>Load from Game</h4>
           <div class="api-load-form">
@@ -82,6 +84,10 @@
               <button id="load-from-api-btn" class="action-btn">🔗 Fetch Data</button>
           </div>
       </div>
+      </div>
+
+      <!-- SECCIÓN 2: INFORMACIÓN DEL PERSONAJE -->
+      <div class="center-section character-section">
         <div class="character-header">
           <div class="player-info">
             <div class="avatar-container"><img src="public/images/items/avatar.png" alt="Player Avatar" class="avatar"><div class="level-badge" id="char-level-badge"></div></div>
@@ -123,13 +129,19 @@
           </div>
         </div>
       </div>
-      <div class="config-and-simulation-section">
+
+      <!-- SECCIÓN 3: CONFIGURACIÓN DE ITEMS -->
+      <div class="center-section item-config-section">
         <div id="item-config-panel" class="config-panel hidden">
           <h4>Item Configuration</h4>
           <div class="item-details"><div id="config-item-icon-container" class="inventory-item"><img id="config-item-icon" src="" alt="Selected Item Icon"></div><span id="config-item-name">Item Name</span></div>
           <div id="item-stats-config" class="item-stats-config"><p>Select an item from the inventory to configure it.</p></div>
           <button id="equip-item-btn" class="action-btn">Equip Item</button>
         </div>
+      </div>
+
+      <!-- SECCIÓN 4: PRESETS -->
+      <div class="center-section presets-section">
         <div id="presets-section" class="config-panel">  
           <h4>Build Presets</h4>
           <div class="preset-save-form">
@@ -140,34 +152,203 @@
             <p>No presets saved yet.</p>
           </div>
         </div>
+      </div>
+
+      <!-- SECCIÓN 5: DAÑO TOTAL -->
+      <div class="center-section total-damage-section">
         <div id="total-damage-section" class="total-damage-section">
           <h4>Total Damage Dealt</h4>
           <div id="total-damage-display" class="total-damage-value">0</div>
           <div id="simulation-summary-container">
             <div class="summary-box">
-              <h4 class="summary-title">Single Hit Cumulative</h4>
+              <h4 class="summary-title">Single Hit Damage</h4>
               <div id="cumulative-damage-display" class="summary-value">0</div>
+              <p class="summary-label">(Cumulative from manual clicks)</p>
             </div>
-            <div class="summary-box">
-              <h4 class="summary-title">Last Full Simulation</h4>
-              <div class="summary-value-group">
-                <span id="full-sim-damage-display" class="summary-value">-</span>
-                <span class="summary-label">Damage</span>
+            <div class="summary-box main-summary">
+              <h4 class="summary-title">Full Cycle Performance Analysis (1000 runs)</h4>
+              
+              <div class="kpi-group">
+                <div class="kpi-main">
+                  <span id="full-sim-avg-damage-display" class="summary-value main-value">-</span>
+                  <span class="summary-label">Avg. Total Damage (TDC)</span>
+                  <div class="secondary-metrics">
+                    <span>Min: <strong id="full-sim-min-damage-display">-</strong></span>
+                    <span>Max: <strong id="full-sim-max-damage-display">-</strong></span>
+                  </div>
+                </div>
+                <div class="kpi-main">
+                  <span id="full-sim-avg-hits-display" class="summary-value main-value">-</span>
+                  <span class="summary-label">Avg. Total Hits (THC)</span>
+                  <div class="secondary-metrics">
+                    <span>Min: <strong id="full-sim-min-hits-display">-</strong></span>
+                    <span>Max: <strong id="full-sim-max-hits-display">-</strong></span>
+                  </div>
+                </div>
               </div>
-              <div class="summary-value-group">
-                <span id="full-sim-ticks-display" class="summary-value">-</span>
-                <span class="summary-label">Hits Survived</span>
+
+              <div class="kpi-secondary-group">
+                <div class="kpi-item">
+                  <span class="kpi-value" id="full-sim-dph-display">-</span>
+                  <span class="kpi-label">Avg. Damage per Hit</span>
+                </div>
+                <div class="kpi-item">
+                  <span class="kpi-value" id="full-sim-consistency-display">-</span>
+                  <span class="kpi-label">Damage Consistency</span>
+                </div>
+                <div class="kpi-item">
+                  <span class="kpi-value" id="full-sim-end-reason-display">-</span>
+                  <span class="kpi-label">Primary Limiting Factor</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- SECCIÓN 6: SIMULACIÓN BÁSICA -->
+      <div class="center-section simulation-section">
         <div id="simulation-panel" class="simulation-panel">
-          <button id="simulate-btn" class="action-btn">Simulate Damage</button>
-          <button id="simulate-full-btn" class="action-btn">Simulate Full Combat</button>
-          <h4>Damage Simulation</h4>
-          <div id="simulation-log" class="simulation-log"> Simulation results will appear here. </div>
+          <h4>🎯 Combat Simulation</h4>
+          
+          <!-- Configuración de simulación -->
+          <div class="simulation-config-simple">
+            <div class="config-group">
+              <label for="simulation-runs-simple">Simulation Runs:</label>
+              <select id="simulation-runs-simple" class="config-select">
+                <option value="100">100 runs (Fast)</option>
+                <option value="500">500 runs (Balanced)</option>
+                <option value="1000" selected>1000 runs (Standard)</option>
+                <option value="2500">2500 runs (Detailed)</option>
+                <option value="5000">5000 runs (Comprehensive)</option>
+              </select>
+            </div>
+            <div class="config-group">
+              <label for="food-selection-simple">Food Item:</label>
+              <select id="food-selection-simple" class="config-select">
+                <option value="bread">Bread (5 HP)</option>
+                <option value="steak" selected>Steak (10 HP)</option>
+                <option value="cookedFish">Cooked Fish (15 HP)</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="simulation-controls">
+            <button id="simulate-btn" class="action-btn">⚔️ Single Hit</button>
+            <button id="simulate-full-btn" class="action-btn primary">🎯 Full Combat Analysis</button>
+          </div>
+          <div class="simulation-info">
+            <p>Each skill has a random factor (0.9x - 1.1x) applied to all calculations for realistic variance.</p>
+          </div>
         </div>
-        
+      </div>
+
+      <!-- SECCIÓN 7: ANÁLISIS AVANZADO -->
+      <div class="center-section advanced-simulation-section">
+        <div id="advanced-simulation-section" class="advanced-simulation-section">
+          <h4>📊 Advanced Build Analysis</h4>
+          
+          <!-- Configuración de simulaciones -->
+          <div class="simulation-config">
+            <div class="config-group">
+              <label for="simulation-runs">Number of Runs:</label>
+              <select id="simulation-runs" class="config-select">
+                <option value="100">100 runs (Fast)</option>
+                <option value="500">500 runs (Balanced)</option>
+                <option value="1000" selected>1000 runs (Standard)</option>
+                <option value="2500">2500 runs (Detailed)</option>
+                <option value="5000">5000 runs (Comprehensive)</option>
+              </select>
+            </div>
+            <div class="config-group">
+              <label for="food-selection-advanced">Food Item:</label>
+              <select id="food-selection-advanced" class="config-select">
+                <option value="bread">Bread (5 HP)</option>
+                <option value="steak" selected>Steak (10 HP)</option>
+                <option value="cookedFish">Cooked Fish (15 HP)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Comparador de builds -->
+          <div class="build-comparator">
+            <h5>🔍 Build Comparison</h5>
+            <div class="comparison-controls">
+              <div class="build-slot">
+                <label>Build A (Current)</label>
+                <div class="build-info" id="build-a-info">
+                  <span class="build-name">Current Build</span>
+                  <span class="build-level">Level 1</span>
+                </div>
+                <button id="load-build-a-btn" class="action-btn small">Load Preset</button>
+              </div>
+              <div class="vs-separator">VS</div>
+              <div class="build-slot">
+                <label>Build B</label>
+                <div class="build-info" id="build-b-info">
+                  <span class="build-name">No build loaded</span>
+                  <span class="build-level">-</span>
+                </div>
+                <button id="load-build-b-btn" class="action-btn small">Load Preset</button>
+              </div>
+            </div>
+            <button id="compare-builds-btn" class="action-btn primary" disabled>🚀 Compare Builds</button>
+          </div>
+
+          <!-- Resultados de comparación -->
+          <div id="comparison-results" class="comparison-results hidden">
+            <h5>📈 Comparison Results</h5>
+            <div class="results-grid">
+              <div class="result-card build-a">
+                <h6>Build A</h6>
+                <div class="result-stats">
+                  <div class="stat-item">
+                    <span class="stat-label">Avg. Damage</span>
+                    <span class="stat-value" id="build-a-avg-damage">-</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Avg. Hits</span>
+                    <span class="stat-value" id="build-a-avg-hits">-</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Damage/Hit</span>
+                    <span class="stat-value" id="build-a-dph">-</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Consistency</span>
+                    <span class="stat-value" id="build-a-consistency">-</span>
+                  </div>
+                </div>
+              </div>
+              <div class="result-card build-b">
+                <h6>Build B</h6>
+                <div class="result-stats">
+                  <div class="stat-item">
+                    <span class="stat-label">Avg. Damage</span>
+                    <span class="stat-value" id="build-b-avg-damage">-</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Avg. Hits</span>
+                    <span class="stat-value" id="build-b-avg-hits">-</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Damage/Hit</span>
+                    <span class="stat-value" id="build-b-dph">-</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">Consistency</span>
+                    <span class="stat-value" id="build-b-consistency">-</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Gráfico de comparación -->
+            <div class="chart-container">
+              <canvas id="comparison-chart" width="400" height="200"></canvas>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

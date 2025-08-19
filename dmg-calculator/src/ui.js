@@ -147,14 +147,43 @@ function renderSimulationSummaries() {
     if (ui.cumulativeDamageDisplay) {
         ui.cumulativeDamageDisplay.textContent = playerState.cumulativeDamage.toFixed(1);
     }
-    if (ui.fullSimDamageDisplay && ui.fullSimTicksDisplay) {
-        if (playerState.lastFullSimulationResult) {
-            ui.fullSimDamageDisplay.textContent = playerState.lastFullSimulationResult.totalDamage.toFixed(1);
-            ui.fullSimTicksDisplay.textContent = playerState.lastFullSimulationResult.ticksSurvived;
-        } else {
-            ui.fullSimDamageDisplay.textContent = '-';
-            ui.fullSimTicksDisplay.textContent = '-';
+    
+    // NOTE: Ensure all these new IDs are cached in the 'ui' object in cacheDOMElements()
+    const displays = ui.fullSimDisplays; 
+
+    if (playerState.lastFullSimulationResult) {
+        const { damageStats, ticksStats, endReasonStats } = playerState.lastFullSimulationResult;
+        
+        // Main KPIs
+        displays.avgDamageDisplay.textContent = damageStats.mean;
+        displays.minDamageDisplay.textContent = damageStats.min;
+        displays.maxDamageDisplay.textContent = damageStats.max;
+
+        displays.avgHitsDisplay.textContent = ticksStats.mean.toFixed(1);
+        displays.minHitsDisplay.textContent = ticksStats.min;
+        displays.maxHitsDisplay.textContent = ticksStats.max;
+
+        // Secondary / Efficiency KPIs
+        const avgDph = ticksStats.mean > 0 ? (damageStats.mean / ticksStats.mean).toFixed(1) : '0';
+        displays.dphDisplay.textContent = avgDph;
+        
+        displays.consistencyDisplay.textContent = `±${damageStats.stdDev}`;
+        
+        // Determine the primary limiting factor
+        let primaryFactor = "Health";
+        if (endReasonStats.byWeapon > endReasonStats.byHealth) {
+            primaryFactor = "Weapon Durability";
         }
+        if (endReasonStats.byMaxTicks > 50) { // If over half the runs hit the limit
+            primaryFactor = "Simulation Limit";
+        }
+        displays.endReasonDisplay.textContent = `${primaryFactor} (${Math.max(endReasonStats.byHealth, endReasonStats.byWeapon).toFixed(0)}%)`;
+
+    } else {
+        // Reset all displays if no data
+        Object.values(displays).forEach(el => {
+            if (el) el.textContent = '-';
+        });
     }
 }
 
@@ -250,47 +279,7 @@ export function hideItemConfigPanel() {
     playerState.selectedConfigItem = null;
 }
 
-export function renderSimulationLog(result, summaryOverride = null) {
-    if (!ui.simulationLog) return;
-    
-    while (ui.simulationLog.children.length > 50) {
-        ui.simulationLog.lastChild.remove();
-    }
-    
-    const logEntry = document.createElement('div');
-    logEntry.className = 'log-entry log-entry--new';
-
-    const summary = document.createElement('div');
-    summary.className = 'log-summary';
-    if (summaryOverride) {
-        summary.innerHTML = summaryOverride;
-    } else {
-        const damageClass = result.wasCritical ? 'log-critical' : 'log-normal';
-        summary.innerHTML = `
-          <p><strong>Damage Dealt:</strong> <span class="${damageClass}">${result.finalDamageDealt}</span></p>
-          <p><strong>Health Lost:</strong> <span class="log-health-lost">${result.healthLost}</span></p>
-        `;
-    }
-    
-    const details = document.createElement('ul');
-    details.className = 'log-details';
-    result.log.forEach(entry => {
-        const li = document.createElement('li');
-        li.innerHTML = entry;
-        details.appendChild(li);
-    });
-    
-    logEntry.appendChild(summary);
-    logEntry.appendChild(details);
-    
-    ui.simulationLog.prepend(logEntry);
-
-    requestAnimationFrame(() => {
-        logEntry.classList.remove('log-entry--new');
-    });
-
-    ui.simulationLog.scrollTop = 0;
-}
+// Removed renderSimulationLog function - no longer needed
 
 export function showFoodSelectionModal() {
     if (!skillsData || !ui.modal.overlay) return;
@@ -395,8 +384,22 @@ export function cacheDOMElements() {
     ui.simulateBtn = document.getElementById('simulate-btn');
     ui.exportBtn = document.getElementById('export-btn');
     ui.fullRestoreBtn = document.getElementById('full-restore-btn');
-    ui.simulationLog = document.getElementById('simulation-log');
+    // Removed simulationLog reference - no longer needed
     ui.cumulativeDamageDisplay = document.getElementById('cumulative-damage-display');
+    // New Monte Carlo simulation display elements
+    ui.fullSimDisplays = {
+        avgDamageDisplay: document.getElementById('full-sim-avg-damage-display'),
+        minDamageDisplay: document.getElementById('full-sim-min-damage-display'),
+        maxDamageDisplay: document.getElementById('full-sim-max-damage-display'),
+        avgHitsDisplay: document.getElementById('full-sim-avg-hits-display'),
+        minHitsDisplay: document.getElementById('full-sim-min-hits-display'),
+        maxHitsDisplay: document.getElementById('full-sim-max-hits-display'),
+        dphDisplay: document.getElementById('full-sim-dph-display'),
+        consistencyDisplay: document.getElementById('full-sim-consistency-display'),
+        endReasonDisplay: document.getElementById('full-sim-end-reason-display')
+    };
+    
+    // Legacy elements (for backward compatibility)
     ui.fullSimDamageDisplay = document.getElementById('full-sim-damage-display');
     ui.fullSimTicksDisplay = document.getElementById('full-sim-ticks-display');
     ui.modal = {
@@ -421,6 +424,42 @@ export function cacheDOMElements() {
         actions: document.getElementById('generic-modal-actions'),
     };
     ui.actionFeedbackTooltip = document.getElementById('action-feedback-tooltip');
+    
+    // === ADVANCED SIMULATION SECTION ===
+    ui.advancedSimulationSection = document.getElementById('advanced-simulation-section');
+    ui.simulationRunsSelect = document.getElementById('simulation-runs');
+    ui.foodSelectionAdvanced = document.getElementById('food-selection-advanced');
+    
+    // Build comparison elements
+    ui.buildAInfo = document.getElementById('build-a-info');
+    ui.buildBInfo = document.getElementById('build-b-info');
+    ui.loadBuildABtn = document.getElementById('load-build-a-btn');
+    ui.loadBuildBBtn = document.getElementById('load-build-b-btn');
+    ui.compareBuildsBtn = document.getElementById('compare-builds-btn');
+    
+    // Comparison results elements
+    ui.comparisonResults = document.getElementById('comparison-results');
+    ui.buildAAvgDamage = document.getElementById('build-a-avg-damage');
+    ui.buildAAvgHits = document.getElementById('build-a-avg-hits');
+    ui.buildADph = document.getElementById('build-a-dph');
+    ui.buildAConsistency = document.getElementById('build-a-consistency');
+    ui.buildBAvgDamage = document.getElementById('build-b-avg-damage');
+    ui.buildBAvgHits = document.getElementById('build-b-avg-hits');
+    ui.buildBDph = document.getElementById('build-b-dph');
+    ui.buildBConsistency = document.getElementById('build-b-consistency');
+    ui.comparisonChart = document.getElementById('comparison-chart');
+    
+    // Single build analysis elements
+    ui.analyzeCurrentBuildBtn = document.getElementById('analyze-current-build-btn');
+    ui.singleAnalysisResults = document.getElementById('single-analysis-results');
+    ui.singleAvgDamage = document.getElementById('single-avg-damage');
+    ui.singleAvgHits = document.getElementById('single-avg-hits');
+    ui.singleDph = document.getElementById('single-dph');
+    ui.singleConsistency = document.getElementById('single-consistency');
+    ui.singlePrimaryFactor = document.getElementById('single-primary-factor');
+    ui.singleHealthLoss = document.getElementById('single-health-loss');
+    ui.singleWeaponBreak = document.getElementById('single-weapon-break');
+    ui.distributionChart = document.getElementById('distribution-chart');
 }
 
 export function renderApiLoader() {
@@ -503,4 +542,568 @@ export function handleProgressBlockMouseEnter(event) {
 
 export function handleProgressBlockMouseLeave() {
     ui.statTooltip.style.opacity = 0;
+}
+
+// === ADVANCED SIMULATION FUNCTIONS ===
+
+/**
+ * Updates the build info display for comparison slots
+ */
+export function updateBuildInfo(buildSlot, buildData, isCurrentBuild = false) {
+    const buildInfo = buildSlot === 'A' ? ui.buildAInfo : ui.buildBInfo;
+    const buildName = buildInfo.querySelector('.build-name');
+    const buildLevel = buildInfo.querySelector('.build-level');
+    
+    if (isCurrentBuild) {
+        buildName.textContent = 'Current Build';
+        buildLevel.textContent = `Level ${playerState.playerLevel}`;
+    } else if (buildData) {
+        buildName.textContent = buildData.name || 'Loaded Build';
+        buildLevel.textContent = `Level ${buildData.stateSnapshot?.playerLevel || '?'}`;
+    } else {
+        buildName.textContent = 'No build loaded';
+        buildLevel.textContent = '-';
+    }
+}
+
+/**
+ * Shows comparison results with charts
+ */
+export function showComparisonResults(buildAResults, buildBResults) {
+    // Update Build A results
+    ui.buildAAvgDamage.textContent = buildAResults.damageStats.mean.toFixed(1);
+    ui.buildAAvgHits.textContent = buildAResults.ticksStats.mean.toFixed(1);
+    ui.buildADph.textContent = (buildAResults.damageStats.mean / buildAResults.ticksStats.mean).toFixed(1);
+    ui.buildAConsistency.textContent = `${((1 - buildAResults.damageStats.stdDev / buildAResults.damageStats.mean) * 100).toFixed(1)}%`;
+    
+    // Update Build B results
+    ui.buildBAvgDamage.textContent = buildBResults.damageStats.mean.toFixed(1);
+    ui.buildBAvgHits.textContent = buildBResults.ticksStats.mean.toFixed(1);
+    ui.buildBDph.textContent = (buildBResults.damageStats.mean / buildBResults.ticksStats.mean).toFixed(1);
+    ui.buildBConsistency.textContent = `${((1 - buildBResults.damageStats.stdDev / buildBResults.damageStats.mean) * 100).toFixed(1)}%`;
+    
+    // Show results section
+    ui.comparisonResults.classList.remove('hidden');
+    
+    // Create comparison chart
+    createComparisonChart(buildAResults, buildBResults);
+}
+
+/**
+ * Shows single build analysis results
+ */
+export function showSingleAnalysisResults(results) {
+    // Update metrics
+    ui.singleAvgDamage.textContent = results.damageStats.mean.toFixed(1);
+    ui.singleAvgHits.textContent = results.ticksStats.mean.toFixed(1);
+    ui.singleDph.textContent = (results.damageStats.mean / results.ticksStats.mean).toFixed(1);
+    ui.singleConsistency.textContent = `${((1 - results.damageStats.stdDev / results.damageStats.mean) * 100).toFixed(1)}%`;
+    
+    // Update limiting factors
+    const primaryFactor = Object.entries(results.endReasonStats).reduce((a, b) => a[1] > b[1] ? a : b);
+    ui.singlePrimaryFactor.textContent = primaryFactor[0].replace('by', '').replace(/([A-Z])/g, ' $1').trim();
+    ui.singleHealthLoss.textContent = `${results.endReasonStats.byHealth.toFixed(1)}%`;
+    ui.singleWeaponBreak.textContent = `${results.endReasonStats.byWeapon.toFixed(1)}%`;
+    
+    // Show results section
+    ui.singleAnalysisResults.classList.remove('hidden');
+    
+    // Create distribution chart
+    createDistributionChart(results);
+}
+
+/**
+ * Creates a comparison chart between two builds
+ */
+function createComparisonChart(buildAResults, buildBResults) {
+    const ctx = ui.comparisonChart.getContext('2d');
+    
+    // Clear previous chart
+    if (window.comparisonChart) {
+        window.comparisonChart.destroy();
+    }
+    
+    // Calculate values for each metric
+    const buildADamage = buildAResults.damageStats.mean;
+    const buildBDamage = buildBResults.damageStats.mean;
+    const buildAHits = buildAResults.ticksStats.mean;
+    const buildBHits = buildBResults.ticksStats.mean;
+    const buildADamagePerHit = buildAResults.damageStats.mean / buildAResults.ticksStats.mean;
+    const buildBDamagePerHit = buildBResults.damageStats.mean / buildBResults.ticksStats.mean;
+    const buildAConsistency = (1 - buildAResults.damageStats.stdDev / buildAResults.damageStats.mean) * 100;
+    const buildBConsistency = (1 - buildBResults.damageStats.stdDev / buildBResults.damageStats.mean) * 100;
+    
+    // Create separate datasets for each metric to use different Y axes
+    const data = {
+        labels: ['Average Damage', 'Average Hits', 'Damage per Hit', 'Consistency'],
+        datasets: [
+            // Damage dataset (uses y axis)
+            {
+                label: 'Build A - Damage',
+                data: [buildADamage, null, null, null],
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderColor: 'rgba(59, 130, 246, 1)',
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+                yAxisID: 'y',
+                order: 1
+            },
+            {
+                label: 'Build B - Damage',
+                data: [buildBDamage, null, null, null],
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+                yAxisID: 'y',
+                order: 1
+            },
+            // Hits dataset (uses y1 axis)
+            {
+                label: 'Build A - Hits',
+                data: [null, buildAHits, null, null],
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderColor: 'rgba(59, 130, 246, 1)',
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+                yAxisID: 'y1',
+                order: 2
+            },
+            {
+                label: 'Build B - Hits',
+                data: [null, buildBHits, null, null],
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+                yAxisID: 'y1',
+                order: 2
+            },
+            // Damage per Hit dataset (uses y2 axis)
+            {
+                label: 'Build A - Dmg/Hit',
+                data: [null, null, buildADamagePerHit, null],
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderColor: 'rgba(59, 130, 246, 1)',
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+                yAxisID: 'y2',
+                order: 3
+            },
+            {
+                label: 'Build B - Dmg/Hit',
+                data: [null, null, buildBDamagePerHit, null],
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+                yAxisID: 'y2',
+                order: 3
+            },
+            // Consistency dataset (uses y3 axis)
+            {
+                label: 'Build A - Consistency',
+                data: [null, null, null, buildAConsistency],
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderColor: 'rgba(59, 130, 246, 1)',
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+                yAxisID: 'y3',
+                order: 4
+            },
+            {
+                label: 'Build B - Consistency',
+                data: [null, null, null, buildBConsistency],
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false,
+                yAxisID: 'y3',
+                order: 4
+            }
+        ]
+    };
+
+    // Chart configuration with multiple Y axes
+    const config = {
+        type: 'bar',
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        color: '#ffffff',
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        },
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        filter: function(legendItem, data) {
+                            // Only show one legend item per metric type
+                            const label = legendItem.text;
+                            if (label.includes('Build A')) {
+                                return !data.datasets.some(ds => 
+                                    ds.label.includes('Build B') && 
+                                    ds.label.includes(label.split(' - ')[1])
+                                );
+                            }
+                            return false;
+                        },
+                        generateLabels: function(chart) {
+                            const labels = [];
+                            const metrics = ['Damage', 'Hits', 'Dmg/Hit', 'Consistency'];
+                            const colors = ['rgba(59, 130, 246, 1)', 'rgba(239, 68, 68, 1)'];
+                            
+                            metrics.forEach((metric, index) => {
+                                labels.push({
+                                    text: `Build A - ${metric}`,
+                                    fillStyle: colors[0],
+                                    strokeStyle: colors[0],
+                                    lineWidth: 0,
+                                    pointStyle: 'circle',
+                                    hidden: false,
+                                    index: index * 2
+                                });
+                                labels.push({
+                                    text: `Build B - ${metric}`,
+                                    fillStyle: colors[1],
+                                    strokeStyle: colors[1],
+                                    lineWidth: 0,
+                                    pointStyle: 'circle',
+                                    hidden: false,
+                                    index: index * 2 + 1
+                                });
+                            });
+                            return labels;
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: '#3b82f6',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            const metric = context.label;
+                            
+                            if (metric === 'Consistency') {
+                                return `${label}: ${value.toFixed(1)}%`;
+                            } else if (metric === 'Damage per Hit') {
+                                return `${label}: ${value.toFixed(1)} dmg/hit`;
+                            } else if (metric === 'Average Hits') {
+                                return `${label}: ${value.toFixed(1)} hits`;
+                            } else {
+                                return `${label}: ${value.toFixed(1)} damage`;
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: '#ffffff',
+                        font: {
+                            size: 12
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Damage',
+                        color: '#ffffff',
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        color: '#ffffff',
+                        font: {
+                            size: 10
+                        },
+                        callback: function(value) {
+                            return value.toFixed(0) + ' dmg';
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Hits',
+                        color: '#ffffff',
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        color: '#ffffff',
+                        font: {
+                            size: 10
+                        },
+                        callback: function(value) {
+                            return value.toFixed(1) + ' hits';
+                        }
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                },
+                y2: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Dmg/Hit',
+                        color: '#ffffff',
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        color: '#ffffff',
+                        font: {
+                            size: 10
+                        },
+                        callback: function(value) {
+                            return value.toFixed(1) + ' dmg/hit';
+                        }
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                },
+                y3: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Consistency %',
+                        color: '#ffffff',
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        color: '#ffffff',
+                        font: {
+                            size: 10
+                        },
+                        callback: function(value) {
+                            return value.toFixed(0) + '%';
+                        }
+                    },
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeInOutQuart'
+            }
+        }
+    };
+
+    // Create the chart
+    window.comparisonChart = new Chart(ctx, config);
+}
+
+/**
+ * Creates a distribution chart for single build analysis
+ */
+function createDistributionChart(results) {
+    const ctx = ui.distributionChart.getContext('2d');
+    
+    // Clear previous chart
+    if (window.distributionChart) {
+        window.distributionChart.destroy();
+    }
+    
+    // Generate distribution data points
+    const min = results.damageStats.min;
+    const max = results.damageStats.max;
+    const mean = results.damageStats.mean;
+    const stdDev = results.damageStats.stdDev;
+    
+    // Create data points for the bell curve
+    const dataPoints = [];
+    const step = (max - min) / 50;
+    
+    for (let i = 0; i <= 50; i++) {
+        const x = min + i * step;
+        const y = Math.exp(-Math.pow((x - mean) / stdDev, 2) / 2) / (stdDev * Math.sqrt(2 * Math.PI));
+        dataPoints.push({ x: x, y: y });
+    }
+    
+    // Normalize y values for better visualization
+    const maxY = Math.max(...dataPoints.map(p => p.y));
+    const normalizedData = dataPoints.map(p => ({ x: p.x, y: (p.y / maxY) * 100 }));
+    
+    const data = {
+        datasets: [{
+            label: 'Damage Distribution',
+            data: normalizedData,
+            borderColor: 'rgba(59, 130, 246, 1)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: 'rgba(59, 130, 246, 1)',
+            pointHoverBorderColor: '#ffffff',
+            pointHoverBorderWidth: 2
+        }]
+    };
+
+    const config = {
+        type: 'line',
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: '#3b82f6',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    callbacks: {
+                        title: function(context) {
+                            return `Damage: ${context[0].parsed.x.toFixed(1)}`;
+                        },
+                        label: function(context) {
+                            return `Frequency: ${context.parsed.y.toFixed(1)}%`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'linear',
+                    position: 'bottom',
+                    title: {
+                        display: true,
+                        text: 'Damage',
+                        color: '#ffffff',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        color: '#ffffff',
+                        font: {
+                            size: 12
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Frequency (%)',
+                        color: '#ffffff',
+                        font: {
+                            size: 14,
+                            weight: 'bold'
+                        }
+                    },
+                    ticks: {
+                        color: '#ffffff',
+                        font: {
+                            size: 12
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeInOutQuart'
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    };
+
+    // Create the chart
+    window.distributionChart = new Chart(ctx, config);
+    
+    // Add mean line annotation
+    const meanLine = {
+        type: 'line',
+        mode: 'vertical',
+        scaleID: 'x',
+        value: mean,
+        borderColor: 'rgba(239, 68, 68, 1)',
+        borderWidth: 2,
+        borderDash: [5, 5],
+        label: {
+            content: `Mean: ${mean.toFixed(1)}`,
+            enabled: true,
+            position: 'top',
+            color: '#ffffff',
+            font: {
+                size: 12,
+                weight: 'bold'
+            }
+        }
+    };
+    
+    window.distributionChart.options.plugins.annotation = {
+        annotations: {
+            meanLine: meanLine
+        }
+    };
+    
+    window.distributionChart.update();
 }
